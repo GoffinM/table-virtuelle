@@ -170,7 +170,11 @@ async function streamPersonaWithSearch(systemPrompt, messages, webSearchEnabled,
   const callAPI = async (msgs) => {
     const body = { model: "claude-sonnet-4-6", max_tokens: 1000, stream: true, system: systemPrompt, messages: msgs };
     if (tools.length) body.tools = tools;
-    const r = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const r = await fetch("/api/chat", { method: "POST", headers: { 
+  "Content-Type": "application/json",
+  "x-api-key": "sk-ant-TACLÉ",
+  "anthropic-version": "2023-06-01",
+}, body: JSON.stringify(body) });
     if (!r.ok) throw new Error(`API ${r.status}`);
     return r;
   };
@@ -235,8 +239,12 @@ async function streamPersonaWithSearch(systemPrompt, messages, webSearchEnabled,
 }
 
 async function callClaudeSimple(system, userContent) {
-  const r = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST", headers: { "Content-Type": "application/json" },
+  const r = await fetch("/api/chat", {
+    method: "POST", headers: { 
+  "Content-Type": "application/json",
+  "x-api-key": "sk-ant-TACLÉ",
+  "anthropic-version": "2023-06-01",
+},
     body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1000, system, messages: [{ role: "user", content: userContent }] }),
   });
   const d = await r.json();
@@ -244,8 +252,12 @@ async function callClaudeSimple(system, userContent) {
 }
 
 async function streamSecretary(historyText, onChunk) {
-  const r = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST", headers: { "Content-Type": "application/json" },
+  const r = await fetch("/api/chat", {
+    method: "POST", headers: { 
+  "Content-Type": "application/json",
+  "x-api-key": "sk-ant-TACLÉ",
+  "anthropic-version": "2023-06-01",
+},
     body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1500, stream: true, system: SECRETARY_PROMPT, messages: [{ role: "user", content: `Débat complet :\n\n${historyText}` }] }),
   });
   const reader = r.body.getReader(); const decoder = new TextDecoder(); let buffer = "";
