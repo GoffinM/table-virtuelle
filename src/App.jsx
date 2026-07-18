@@ -3,36 +3,25 @@ import { useState, useRef, useEffect } from "react";
 // ─── FRAMEWORKS ───────────────────────────────────────────────────────────────
 
 const ARTISTIC_DISCIPLINES = [
-  { id: "mise_en_scene", name: "Mise en scène", emoji: "🎭", role: "Vision scénique", color: "#7C3AED", bg: "#F5F3FF", border: "#DDD6FE",
-    systemPrompt: `Tu es le Metteur en scène dans une table de production artistique. Tu parles de vision scénique, de direction des acteurs/performeurs, de l'espace dramaturgique. Tu défends des choix artistiques forts et tu identifies les tensions entre le texte/concept et leur mise en espace. Style : visionnaire, exigeant, ancré dans le concret scénique. 3-4 phrases max.` },
-  { id: "choregraphie", name: "Chorégraphie", emoji: "💃", role: "Corps & mouvement", color: "#DB2777", bg: "#FDF2F8", border: "#FBCFE8",
-    systemPrompt: `Tu es le Chorégraphe dans une table de production artistique. Tu parles du corps, du mouvement, de l'espace kinesthésique, de la relation entre les performeurs. Tu défends la cohérence du langage corporel avec la vision globale. Style : sensoriel, précis sur le geste, attentif aux relations entre corps et espace. 3-4 phrases max.` },
-  { id: "musique", name: "Musique", emoji: "🎵", role: "Univers sonore", color: "#0369A1", bg: "#F0F9FF", border: "#BAE6FD",
-    systemPrompt: `Tu es le Compositeur/Directeur musical dans une table de production artistique. Tu parles de l'univers sonore, de la partition, des relations entre son et image/corps/texte. Tu identifies les contraintes techniques (live vs enregistré, acoustique, régie son). Style : attentif aux textures, aux silences, aux interactions son/espace. 3-4 phrases max.` },
-  { id: "dramaturgie", name: "Dramaturgie/Texte", emoji: "✍️", role: "Sens & narration", color: "#92400E", bg: "#FFFBEB", border: "#FDE68A",
-    systemPrompt: `Tu es le Dramaturge/Auteur dans une table de production artistique. Tu parles du sens, de la narration, de la cohérence dramaturgique, des enjeux du texte. Tu questionnes les choix qui pourraient trahir ou enrichir le propos. Style : rigoureux sur le sens, attentif aux sous-textes, questionneur. 3-4 phrases max.` },
-  { id: "scenographie", name: "Scénographie", emoji: "🖼️", role: "Espace & visuel", color: "#065F46", bg: "#ECFDF5", border: "#A7F3D0",
-    systemPrompt: `Tu es le Scénographe dans une table de production artistique. Tu parles de l'espace, de la lumière, des matières, de la scénographie visuelle. Tu identifies les contraintes techniques et les opportunités plastiques. Style : spatial, attentif aux matières et aux lumières, pragmatique sur les contraintes. 3-4 phrases max.` },
-  { id: "video_numerique", name: "Vidéo/Numérique", emoji: "📹", role: "Image & technologie", color: "#374151", bg: "#F9FAFB", border: "#E5E7EB",
-    systemPrompt: `Tu es le Directeur vidéo/Artiste numérique dans une table de production artistique. Tu parles des images, du numérique, des interactions technologiques avec le vivant. Tu identifies les contraintes techniques et les possibilités créatives du médium. Style : technico-artistique, attentif aux interactions entre technologie et performance. 3-4 phrases max.` },
+  { id: "mise_en_scene", name: "Mise en scène", emoji: "🎭", role: "Vision scénique", color: "#7C3AED", bg: "#F5F3FF", border: "#DDD6FE", systemPrompt: `Tu es le Metteur en scène dans une table de production artistique. Tu parles de vision scénique, de direction des acteurs/performeurs, de l'espace dramaturgique. Style : visionnaire, exigeant, ancré dans le concret scénique. 3-4 phrases max.` },
+  { id: "choregraphie", name: "Chorégraphie", emoji: "💃", role: "Corps & mouvement", color: "#DB2777", bg: "#FDF2F8", border: "#FBCFE8", systemPrompt: `Tu es le Chorégraphe dans une table de production artistique. Tu parles du corps, du mouvement, de l'espace kinesthésique. Style : sensoriel, précis sur le geste. 3-4 phrases max.` },
+  { id: "musique", name: "Musique", emoji: "🎵", role: "Univers sonore", color: "#0369A1", bg: "#F0F9FF", border: "#BAE6FD", systemPrompt: `Tu es le Compositeur/Directeur musical. Tu parles de l'univers sonore, de la partition, des relations son/image/corps. Style : attentif aux textures et silences. 3-4 phrases max.` },
+  { id: "dramaturgie", name: "Dramaturgie/Texte", emoji: "✍️", role: "Sens & narration", color: "#92400E", bg: "#FFFBEB", border: "#FDE68A", systemPrompt: `Tu es le Dramaturge/Auteur. Tu parles du sens, de la narration, de la cohérence dramaturgique. Style : rigoureux sur le sens, questionneur. 3-4 phrases max.` },
+  { id: "scenographie", name: "Scénographie", emoji: "🖼️", role: "Espace & visuel", color: "#065F46", bg: "#ECFDF5", border: "#A7F3D0", systemPrompt: `Tu es le Scénographe. Tu parles de l'espace, de la lumière, des matières. Style : spatial, attentif aux matières, pragmatique sur les contraintes. 3-4 phrases max.` },
+  { id: "video_numerique", name: "Vidéo/Numérique", emoji: "📹", role: "Image & technologie", color: "#374151", bg: "#F9FAFB", border: "#E5E7EB", systemPrompt: `Tu es le Directeur vidéo/Artiste numérique. Tu parles des images, du numérique, des interactions technologiques. Style : technico-artistique. 3-4 phrases max.` },
 ];
 
 const ARTISTIC_TRANSVERSAL = [
-  { id: "production_art", name: "Production", emoji: "🎬", role: "Budget & planning", color: "#B45309", bg: "#FFFBEB", border: "#FDE68A",
-    systemPrompt: `Tu es le Producteur dans une table de production artistique. Tu parles de budget, de planning, de faisabilité, de ressources humaines et matérielles. Tu identifies les risques et proposes des solutions réalistes. Style : pragmatique, orienté solutions, garant de la faisabilité. 3-4 phrases max.` },
-  { id: "regie", name: "Régie", emoji: "🔧", role: "Technique & logistique", color: "#1D4ED8", bg: "#EFF6FF", border: "#BFDBFE",
-    systemPrompt: `Tu es le Régisseur général dans une table de production artistique. Tu parles des contraintes techniques, logistiques, de sécurité, de la réalité du terrain. Tu traduis les désirs artistiques en faisabilité technique. Style : direct, terre-à-terre, expert des contraintes réelles. 3-4 phrases max.` },
-  { id: "public_art", name: "Le Public", emoji: "👥", role: "Expérience & réception", color: "#DC2626", bg: "#FEF2F2", border: "#FECACA",
-    systemPrompt: `Tu es la voix du Public dans une table de production artistique. Tu parles de l'expérience vécue, de la réception émotionnelle et intellectuelle, de l'accessibilité, de ce qui touche vraiment. Tu représentes la diversité des publics (initié, néophyte, jeune, senior). Style : humain, direct, parfois surprenant dans tes réactions. 3-4 phrases max.` },
-  { id: "financeur", name: "Financeur/Partenaire", emoji: "🏛️", role: "Viabilité & soutien", color: "#374151", bg: "#F9FAFB", border: "#E5E7EB",
-    systemPrompt: `Tu es le Financeur/Partenaire institutionnel dans une table de production artistique. Tu parles de subventions, de mécénat, de viabilité économique, de retombées culturelles. Tu identifies les critères de soutien et les risques de réputation. Style : institutionnel mais ouvert, attentif à l'impact culturel et à la viabilité. 3-4 phrases max.` },
-  { id: "communication_art", name: "Communication", emoji: "📢", role: "Médiation & diffusion", color: "#059669", bg: "#ECFDF5", border: "#A7F3D0",
-    systemPrompt: `Tu es le Responsable communication/diffusion dans une table de production artistique. Tu parles de médiation culturelle, de promotion, de publics cibles, de tournée/diffusion. Tu identifies les arguments de vente et les défis de communication. Style : orienté publics, attentif au discours et à la lisibilité du projet. 3-4 phrases max.` },
+  { id: "production_art", name: "Production", emoji: "🎬", role: "Budget & planning", color: "#B45309", bg: "#FFFBEB", border: "#FDE68A", systemPrompt: `Tu es le Producteur dans une table de production artistique. Budget, planning, faisabilité, ressources. Style : pragmatique, orienté solutions. 3-4 phrases max.` },
+  { id: "regie", name: "Régie", emoji: "🔧", role: "Technique & logistique", color: "#1D4ED8", bg: "#EFF6FF", border: "#BFDBFE", systemPrompt: `Tu es le Régisseur général. Contraintes techniques, logistiques, sécurité, réalité du terrain. Style : direct, terre-à-terre. 3-4 phrases max.` },
+  { id: "public_art", name: "Le Public", emoji: "👥", role: "Expérience & réception", color: "#DC2626", bg: "#FEF2F2", border: "#FECACA", systemPrompt: `Tu es la voix du Public. Expérience vécue, réception émotionnelle, accessibilité. Style : humain, direct, parfois surprenant. 3-4 phrases max.` },
+  { id: "financeur", name: "Financeur/Partenaire", emoji: "🏛️", role: "Viabilité & soutien", color: "#374151", bg: "#F9FAFB", border: "#E5E7EB", systemPrompt: `Tu es le Financeur/Partenaire institutionnel. Subventions, mécénat, viabilité économique. Style : institutionnel mais ouvert. 3-4 phrases max.` },
+  { id: "communication_art", name: "Communication", emoji: "📢", role: "Médiation & diffusion", color: "#059669", bg: "#ECFDF5", border: "#A7F3D0", systemPrompt: `Tu es le Responsable communication/diffusion. Médiation culturelle, promotion, publics cibles. Style : orienté publics. 3-4 phrases max.` },
 ];
 
 const ARTISTIC_DA = {
   id: "direction_artistique", name: "Direction Artistique", emoji: "🎨", role: "Vision globale & arbitrage", color: "#6D28D9", bg: "#F5F3FF", border: "#C4B5FD",
-  systemPrompt: `Tu es le Directeur/la Directrice Artistique dans une table de production artistique. Tu portes la vision globale du projet, tu arbitres les tensions entre disciplines, tu garantis la cohérence esthétique et le sens de l'ensemble. Tu parles en premier pour poser le cadre, et en dernier pour synthétiser. Style : visionnaire, exigeant sur la cohérence, capable d'arbitrer sans écraser les voix. 4-5 phrases max.`,
+  systemPrompt: `Tu es le Directeur/la Directrice Artistique. Tu portes la vision globale, arbitres les tensions entre disciplines, garantis la cohérence esthétique. Style : visionnaire, exigeant sur la cohérence, capable d'arbitrer. 4-5 phrases max.`,
   voice: { pitch: 0.9, rate: 0.92, voiceIndex: 0 },
 };
 
@@ -49,7 +38,7 @@ const FRAMEWORKS = {
     id: "sixhats", label: "Six Chapeaux de Bono", description: "Six angles de pensée pour explorer toutes les facettes d'une décision.",
     personas: [
       { id: "blanc", name: "Chapeau Blanc", emoji: "🤍", color: "#6B7280", bg: "#F9FAFB", border: "#E5E7EB", role: "Faits & données", voice: { pitch: 1, rate: 0.95, voiceIndex: 0 }, systemPrompt: `Tu es le Chapeau Blanc (Six Chapeaux de Bono). Faits, chiffres, données vérifiables uniquement. Style : neutre, factuel, précis. 3-4 phrases max.` },
-      { id: "rouge", name: "Chapeau Rouge", emoji: "❤️", color: "#DC2626", bg: "#FEF2F2", border: "#FECACA", role: "Émotions & intuitions", voice: { pitch: 1.2, rate: 1.05, voiceIndex: 1 }, systemPrompt: `Tu es le Chapeau Rouge (Six Chapeaux de Bono). Émotions, intuition, ressenti — sans justification rationnelle. Style : direct, humain, émotionnel. 3-4 phrases max.` },
+      { id: "rouge", name: "Chapeau Rouge", emoji: "❤️", color: "#DC2626", bg: "#FEF2F2", border: "#FECACA", role: "Émotions & intuitions", voice: { pitch: 1.2, rate: 1.05, voiceIndex: 1 }, systemPrompt: `Tu es le Chapeau Rouge (Six Chapeaux de Bono). Émotions, intuition, ressenti. Style : direct, humain, émotionnel. 3-4 phrases max.` },
       { id: "noir", name: "Chapeau Noir", emoji: "🖤", color: "#111827", bg: "#F3F4F6", border: "#D1D5DB", role: "Risques & critique", voice: { pitch: 0.85, rate: 0.9, voiceIndex: 2 }, systemPrompt: `Tu es le Chapeau Noir (Six Chapeaux de Bono). Risques, faiblesses, ce qui peut mal tourner. Style : sérieux, précis. 3-4 phrases max.` },
       { id: "jaune", name: "Chapeau Jaune", emoji: "💛", color: "#D97706", bg: "#FFFBEB", border: "#FDE68A", role: "Optimisme & opportunités", voice: { pitch: 1.15, rate: 1.1, voiceIndex: 3 }, systemPrompt: `Tu es le Chapeau Jaune (Six Chapeaux de Bono). Bénéfices, opportunités, potentiel positif. Style : enthousiaste mais fondé. 3-4 phrases max.` },
       { id: "vert", name: "Chapeau Vert", emoji: "💚", color: "#059669", bg: "#ECFDF5", border: "#A7F3D0", role: "Créativité & alternatives", voice: { pitch: 1.1, rate: 1.0, voiceIndex: 4 }, systemPrompt: `Tu es le Chapeau Vert (Six Chapeaux de Bono). Idées nouvelles, alternatives créatives. Style : imaginatif, ouvert. 3-4 phrases max.` },
@@ -70,21 +59,14 @@ const FRAMEWORKS = {
   premortem: {
     id: "premortem", label: "Pré-mortem", description: "Imaginez que le projet a échoué. Pourquoi ? Comment l'éviter ?",
     personas: [
-      { id: "pessimiste", name: "Le Pessimiste", emoji: "😟", color: "#7F1D1D", bg: "#FEF2F2", border: "#FECACA", role: "Ce qui va échouer", voice: { pitch: 0.85, rate: 0.88, voiceIndex: 0 }, systemPrompt: `Tu es Le Pessimiste dans un pré-mortem. Le projet a échoué. Raisons principales avec précision. Style : sombre mais rigoureux. 3-4 phrases.` },
-      { id: "realiste", name: "Le Réaliste", emoji: "🎯", color: "#374151", bg: "#F9FAFB", border: "#E5E7EB", role: "Ce qui était prévisible", voice: { pitch: 1.0, rate: 0.95, voiceIndex: 1 }, systemPrompt: `Tu es Le Réaliste dans un pré-mortem. Ce qui était prévisible, signaux ignorés. Style : analytique, sans jugement. 3-4 phrases.` },
-      { id: "historien", name: "L'Historien", emoji: "📚", color: "#92400E", bg: "#FFFBEB", border: "#FDE68A", role: "Leçons du passé", voice: { pitch: 0.9, rate: 0.9, voiceIndex: 2 }, systemPrompt: `Tu es L'Historien dans un pré-mortem. Précédents similaires qui ont échoué. Style : référencé, pédagogique. 3-4 phrases.` },
+      { id: "pessimiste", name: "Le Pessimiste", emoji: "😟", color: "#7F1D1D", bg: "#FEF2F2", border: "#FECACA", role: "Ce qui va échouer", voice: { pitch: 0.85, rate: 0.88, voiceIndex: 0 }, systemPrompt: `Tu es Le Pessimiste dans un pré-mortem. Le projet a échoué. Raisons principales. Style : sombre mais rigoureux. 3-4 phrases.` },
+      { id: "realiste", name: "Le Réaliste", emoji: "🎯", color: "#374151", bg: "#F9FAFB", border: "#E5E7EB", role: "Ce qui était prévisible", voice: { pitch: 1.0, rate: 0.95, voiceIndex: 1 }, systemPrompt: `Tu es Le Réaliste dans un pré-mortem. Ce qui était prévisible, signaux ignorés. Style : analytique. 3-4 phrases.` },
+      { id: "historien", name: "L'Historien", emoji: "📚", color: "#92400E", bg: "#FFFBEB", border: "#FDE68A", role: "Leçons du passé", voice: { pitch: 0.9, rate: 0.9, voiceIndex: 2 }, systemPrompt: `Tu es L'Historien dans un pré-mortem. Précédents similaires. Style : référencé, pédagogique. 3-4 phrases.` },
       { id: "coach", name: "Le Coach", emoji: "💪", color: "#059669", bg: "#ECFDF5", border: "#A7F3D0", role: "Comment éviter l'échec", voice: { pitch: 1.1, rate: 1.05, voiceIndex: 3 }, systemPrompt: `Tu es Le Coach dans un pré-mortem. Actions concrètes pour éviter l'échec. Style : constructif, actionnable. 3-4 phrases + 3 actions.` },
     ],
   },
-  artistique: {
-    id: "artistique", label: "Projet Artistique", description: "Direction artistique, disciplines créatives et contraintes de production.",
-    isArtistic: true,
-    personas: [], // dynamically built
-  },
-  libre: {
-    id: "libre", label: "Table libre", description: "Composez votre propre table avec des personas entièrement personnalisés.",
-    personas: [],
-  },
+  artistique: { id: "artistique", label: "Projet Artistique", description: "Direction artistique, disciplines créatives et contraintes de production.", isArtistic: true, personas: [] },
+  libre: { id: "libre", label: "Table libre", description: "Composez votre propre table avec des personas entièrement personnalisés.", personas: [] },
 };
 
 const SECRETARY_PROMPT = `Tu es le Secrétaire de Séance — rôle neutre dont le seul job est de produire un document structuré et actionnable.
@@ -120,23 +102,20 @@ Distingue EXPLICITEMENT tes sources :
 const HUMAN_COLORS = ["#7C3AED","#059669","#DC2626","#D97706","#2563EB","#0891B2","#B45309","#374151"];
 const HUMAN_EMOJIS = ["👤","👩","👨","🧑","👩‍💼","👨‍💼","🧑‍💼","👩‍🎨","👨‍🎨"];
 
+const FEEDBACK_EMAIL = "feedback@table-virtuelle.app";
+
 // ─── STORAGE ──────────────────────────────────────────────────────────────────
 
-const STORAGE_KEY = "tables_v5";
+const STORAGE_KEY = "tables_v5b";
 const PRESETS_KEY = "artistic_presets_v1";
+const ONBOARDING_KEY = "onboarding_done";
 
-async function loadTables() {
-  try { const r = await window.storage.get(STORAGE_KEY); return r ? JSON.parse(r.value) : []; } catch { return []; }
-}
-async function saveTables(tables) {
-  try { await window.storage.set(STORAGE_KEY, JSON.stringify(tables)); } catch {}
-}
-async function loadUserPresets() {
-  try { const r = await window.storage.get(PRESETS_KEY); return r ? JSON.parse(r.value) : []; } catch { return []; }
-}
-async function saveUserPresets(presets) {
-  try { await window.storage.set(PRESETS_KEY, JSON.stringify(presets)); } catch {}
-}
+async function loadTables() { try { const r = await window.storage.get(STORAGE_KEY); return r ? JSON.parse(r.value) : []; } catch { return []; } }
+async function saveTables(tables) { try { await window.storage.set(STORAGE_KEY, JSON.stringify(tables)); } catch {} }
+async function loadUserPresets() { try { const r = await window.storage.get(PRESETS_KEY); return r ? JSON.parse(r.value) : []; } catch { return []; } }
+async function saveUserPresets(presets) { try { await window.storage.set(PRESETS_KEY, JSON.stringify(presets)); } catch {} }
+async function getOnboardingDone() { try { const r = await window.storage.get(ONBOARDING_KEY); return !!r; } catch { return false; } }
+async function setOnboardingDone() { try { await window.storage.set(ONBOARDING_KEY, "1"); } catch {} }
 
 // ─── API ──────────────────────────────────────────────────────────────────────
 
@@ -146,7 +125,7 @@ async function streamPersonaWithSearch(systemPrompt, messages, webSearchEnabled,
     const body = { model: "claude-sonnet-4-6", max_tokens: 1000, stream: true, system: systemPrompt, messages: msgs };
     if (tools.length) body.tools = tools;
     const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    if (!r.ok) throw new Error(`API ${r.status}`);
+    if (!r.ok) { const err = await r.json().catch(() => ({})); throw new Error(err?.error?.message || `API ${r.status}`); }
     return r;
   };
   let currentMessages = [...messages], finalText = "", iterations = 0;
@@ -244,8 +223,8 @@ function buildUserContent(text, docs = []) {
 
 class AudioEngine {
   constructor() {
-    this.synth = window.speechSynthesis; this.recognition = null; this.voices = []; this.ready = false;
-    if (this.synth) { const load = () => { this.voices = this.synth.getVoices(); this.ready = true; }; this.synth.onvoiceschanged = load; load(); }
+    this.synth = window.speechSynthesis; this.recognition = null; this.voices = [];
+    if (this.synth) { const load = () => { this.voices = this.synth.getVoices(); }; this.synth.onvoiceschanged = load; load(); }
   }
   getVoice(index) { const lv = this.voices.filter(v => v.lang.startsWith("fr") || v.lang.startsWith("en")); return lv[index % Math.max(lv.length, 1)] || this.voices[0]; }
   speak(text, voiceConfig, onEnd) {
@@ -267,92 +246,111 @@ class AudioEngine {
 }
 const audioEngine = new AudioEngine();
 
-// ─── ARTISTIC FRAMEWORK SETUP ─────────────────────────────────────────────────
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
+
+function buildArtisticPersonas(activeDisciplines, activeTransversals) {
+  const disciplines = ARTISTIC_DISCIPLINES.filter(d => activeDisciplines.includes(d.id)).map((d, i) => ({ ...d, voice: { pitch: 0.9 + i * 0.05, rate: 0.95, voiceIndex: i } }));
+  const transversals = ARTISTIC_TRANSVERSAL.filter(t => activeTransversals.includes(t.id)).map((t, i) => ({ ...t, voice: { pitch: 1.0 + i * 0.05, rate: 1.0, voiceIndex: i + 3 } }));
+  return [{ ...ARTISTIC_DA }, ...disciplines, ...transversals];
+}
+
+function formatDate(ts) {
+  if (!ts) return "";
+  const d = new Date(ts);
+  return d.toLocaleDateString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+}
+
+// ─── ONBOARDING ───────────────────────────────────────────────────────────────
+
+function OnboardingModal({ onClose }) {
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}>
+      <div style={{ background: "#fff", borderRadius: 16, padding: 32, maxWidth: 480, width: "100%", animation: "fadeIn 0.3s ease" }}>
+        <div style={{ fontSize: 32, marginBottom: 12 }}>🪑</div>
+        <div style={{ fontWeight: 800, fontSize: 22, color: "#111827", marginBottom: 8 }}>Bienvenue sur Table Virtuelle</div>
+        <div style={{ fontSize: 14, color: "#6B7280", lineHeight: 1.7, marginBottom: 20 }}>
+          Soumettez une décision ou une question à une table de débat IA — chaque participant apporte son angle, sa personnalité, sa logique.
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24 }}>
+          {[
+            ["🎯", "Choisissez un cadre", "Six Chapeaux, Conseil d'Administration, Pré-mortem ou Projet Artistique"],
+            ["🎭", "Configurez votre table", "Activez/désactivez des personas, ajoutez des participants humains, chargez des documents"],
+            ["💬", "Débattez", "Posez des questions à toute la table ou @mentionnez un persona pour le cibler"],
+            ["📋", "Clôturez", "Le Secrétaire de Séance produit une synthèse actionnelle avec feuille de route"],
+          ].map(([emoji, title, desc]) => (
+            <div key={title} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+              <span style={{ fontSize: 20, flexShrink: 0 }}>{emoji}</span>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 13, color: "#111827" }}>{title}</div>
+                <div style={{ fontSize: 12, color: "#9CA3AF" }}>{desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{ fontSize: 12, color: "#9CA3AF", marginBottom: 16 }}>
+          Version bêta — vos retours sont précieux : <a href={`mailto:${FEEDBACK_EMAIL}`} style={{ color: "#6D28D9" }}>{FEEDBACK_EMAIL}</a>
+        </div>
+        <button onClick={onClose} style={{ width: "100%", background: "#111827", color: "#fff", border: "none", borderRadius: 10, padding: "12px", fontSize: 15, fontWeight: 700, cursor: "pointer" }}>
+          Créer ma première table →
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── ARTISTIC SETUP ───────────────────────────────────────────────────────────
 
 function ArtisticSetup({ activeDisciplines, setActiveDisciplines, activeTransversals, setActiveTransversals, userPresets, onSavePreset, onLoadPreset }) {
   const [showSavePreset, setShowSavePreset] = useState(false);
   const [presetName, setPresetName] = useState("");
-
-  const toggleDiscipline = (id) => setActiveDisciplines(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-  const toggleTransversal = (id) => setActiveTransversals(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-
+  const toggleD = (id) => setActiveDisciplines(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  const toggleT = (id) => setActiveTransversals(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   const handleSave = () => {
     if (!presetName.trim()) return;
     onSavePreset({ id: `user_${Date.now()}`, name: presetName.trim(), emoji: "⭐", disciplines: activeDisciplines, transversals: activeTransversals });
     setPresetName(""); setShowSavePreset(false);
   };
-
   return (
-    <div style={{ marginBottom: 20 }}>
-      {/* Presets */}
+    <div>
       <div style={{ marginBottom: 14 }}>
         <div style={{ fontSize: 12, color: "#9CA3AF", fontWeight: 700, marginBottom: 8 }}>PRESETS</div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-          {ARTISTIC_PRESETS_SYSTEM.map(p => (
-            <button key={p.id} onClick={() => onLoadPreset(p)}
-              style={{ fontSize: 12, padding: "4px 10px", borderRadius: 16, border: "1px solid #E5E7EB", background: "#F9FAFB", color: "#374151", cursor: "pointer" }}>
-              {p.emoji} {p.name}
-            </button>
-          ))}
-          {userPresets.map(p => (
-            <button key={p.id} onClick={() => onLoadPreset(p)}
-              style={{ fontSize: 12, padding: "4px 10px", borderRadius: 16, border: "1px solid #DDD6FE", background: "#F5F3FF", color: "#7C3AED", cursor: "pointer" }}>
-              ⭐ {p.name}
-            </button>
-          ))}
-          <button onClick={() => setShowSavePreset(v => !v)}
-            style={{ fontSize: 12, padding: "4px 10px", borderRadius: 16, border: "1.5px dashed #D1D5DB", background: "#FAFAFA", color: "#9CA3AF", cursor: "pointer" }}>
-            + Sauver preset
-          </button>
+          {ARTISTIC_PRESETS_SYSTEM.map(p => <button key={p.id} onClick={() => onLoadPreset(p)} style={{ fontSize: 12, padding: "4px 10px", borderRadius: 16, border: "1px solid #E5E7EB", background: "#F9FAFB", color: "#374151", cursor: "pointer" }}>{p.emoji} {p.name}</button>)}
+          {userPresets.map(p => <button key={p.id} onClick={() => onLoadPreset(p)} style={{ fontSize: 12, padding: "4px 10px", borderRadius: 16, border: "1px solid #DDD6FE", background: "#F5F3FF", color: "#7C3AED", cursor: "pointer" }}>⭐ {p.name}</button>)}
+          <button onClick={() => setShowSavePreset(v => !v)} style={{ fontSize: 12, padding: "4px 10px", borderRadius: 16, border: "1.5px dashed #D1D5DB", background: "#FAFAFA", color: "#9CA3AF", cursor: "pointer" }}>+ Sauver preset</button>
         </div>
         {showSavePreset && (
           <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-            <input value={presetName} onChange={e => setPresetName(e.target.value)} placeholder="Nom du preset (ex: Mon spectacle de danse)" onKeyDown={e => e.key === "Enter" && handleSave()}
-              style={{ flex: 1, border: "1.5px solid #DDD6FE", borderRadius: 8, padding: "6px 10px", fontSize: 13 }} />
+            <input value={presetName} onChange={e => setPresetName(e.target.value)} placeholder="Nom du preset" onKeyDown={e => e.key === "Enter" && handleSave()} style={{ flex: 1, border: "1.5px solid #DDD6FE", borderRadius: 8, padding: "6px 10px", fontSize: 13 }} />
             <button onClick={handleSave} style={{ background: "#7C3AED", color: "#fff", border: "none", borderRadius: 8, padding: "6px 14px", fontSize: 13, cursor: "pointer" }}>Sauver</button>
           </div>
         )}
       </div>
-
-      {/* DA — always active */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, background: ARTISTIC_DA.bg, border: `2px solid ${ARTISTIC_DA.border}`, borderRadius: 8, padding: "8px 12px", marginBottom: 10 }}>
-        <span style={{ fontSize: 18 }}>{ARTISTIC_DA.emoji}</span>
-        <div style={{ flex: 1 }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: ARTISTIC_DA.color }}>{ARTISTIC_DA.name}</span>
-          <span style={{ fontSize: 11, color: "#9CA3AF", marginLeft: 8 }}>{ARTISTIC_DA.role}</span>
-        </div>
+        <span>{ARTISTIC_DA.emoji}</span>
+        <span style={{ fontSize: 13, fontWeight: 700, color: ARTISTIC_DA.color, flex: 1 }}>{ARTISTIC_DA.name}</span>
         <span style={{ fontSize: 11, background: "#EDE9FE", color: "#7C3AED", borderRadius: 4, padding: "1px 6px" }}>Toujours actif</span>
       </div>
-
-      {/* Disciplines */}
       <div style={{ fontSize: 12, color: "#9CA3AF", fontWeight: 700, marginBottom: 8 }}>DISCIPLINES CRÉATIVES</div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 14 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 5, marginBottom: 14 }}>
         {ARTISTIC_DISCIPLINES.map(d => {
           const active = activeDisciplines.includes(d.id);
-          return (
-            <button key={d.id} onClick={() => toggleDiscipline(d.id)} style={{ display: "flex", alignItems: "center", gap: 8, background: active ? d.bg : "#FAFAFA", border: `1.5px solid ${active ? d.border : "#E5E7EB"}`, borderRadius: 8, padding: "7px 10px", cursor: "pointer", textAlign: "left" }}>
-              <span style={{ fontSize: 16 }}>{d.emoji}</span>
-              <span style={{ fontSize: 13, fontWeight: 600, color: active ? d.color : "#6B7280", flex: 1 }}>{d.name}</span>
-              <span style={{ fontSize: 11, color: "#9CA3AF" }}>{d.role}</span>
-              <span style={{ fontSize: 14, color: active ? d.color : "#D1D5DB" }}>{active ? "✓" : "+"}</span>
-            </button>
-          );
+          return <button key={d.id} onClick={() => toggleD(d.id)} style={{ display: "flex", alignItems: "center", gap: 8, background: active ? d.bg : "#FAFAFA", border: `1.5px solid ${active ? d.border : "#E5E7EB"}`, borderRadius: 8, padding: "7px 10px", cursor: "pointer", textAlign: "left" }}>
+            <span>{d.emoji}</span><span style={{ fontSize: 13, fontWeight: 600, color: active ? d.color : "#6B7280", flex: 1 }}>{d.name}</span>
+            <span style={{ fontSize: 11, color: "#9CA3AF" }}>{d.role}</span>
+            <span style={{ fontSize: 14, color: active ? d.color : "#D1D5DB" }}>{active ? "✓" : "+"}</span>
+          </button>;
         })}
       </div>
-
-      {/* Transversals */}
       <div style={{ fontSize: 12, color: "#9CA3AF", fontWeight: 700, marginBottom: 8 }}>RÔLES TRANSVERSAUX</div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
         {ARTISTIC_TRANSVERSAL.map(t => {
           const active = activeTransversals.includes(t.id);
-          return (
-            <button key={t.id} onClick={() => toggleTransversal(t.id)} style={{ display: "flex", alignItems: "center", gap: 8, background: active ? t.bg : "#FAFAFA", border: `1.5px solid ${active ? t.border : "#E5E7EB"}`, borderRadius: 8, padding: "7px 10px", cursor: "pointer", textAlign: "left" }}>
-              <span style={{ fontSize: 16 }}>{t.emoji}</span>
-              <span style={{ fontSize: 13, fontWeight: 600, color: active ? t.color : "#6B7280", flex: 1 }}>{t.name}</span>
-              <span style={{ fontSize: 11, color: "#9CA3AF" }}>{t.role}</span>
-              <span style={{ fontSize: 14, color: active ? t.color : "#D1D5DB" }}>{active ? "✓" : "+"}</span>
-            </button>
-          );
+          return <button key={t.id} onClick={() => toggleT(t.id)} style={{ display: "flex", alignItems: "center", gap: 8, background: active ? t.bg : "#FAFAFA", border: `1.5px solid ${active ? t.border : "#E5E7EB"}`, borderRadius: 8, padding: "7px 10px", cursor: "pointer", textAlign: "left" }}>
+            <span>{t.emoji}</span><span style={{ fontSize: 13, fontWeight: 600, color: active ? t.color : "#6B7280", flex: 1 }}>{t.name}</span>
+            <span style={{ fontSize: 11, color: "#9CA3AF" }}>{t.role}</span>
+            <span style={{ fontSize: 14, color: active ? t.color : "#D1D5DB" }}>{active ? "✓" : "+"}</span>
+          </button>;
         })}
       </div>
     </div>
@@ -369,13 +367,12 @@ function CustomPersonaBuilder({ onAdd, existingDocs, onCancel }) {
   const colors = ["#7C3AED","#059669","#DC2626","#D97706","#2563EB","#0891B2"];
   const [color] = useState(() => colors[Math.floor(Math.random() * colors.length)]);
   const canAdd = name.trim() && role.trim() && (promptMode === "auto" || customPrompt.trim()) && (mode !== "doc" || selectedDoc);
-
   const handleAdd = async () => {
     setIsGenerating(true);
     let finalPrompt = customPrompt;
     if (mode === "doc" && selectedDoc) {
       finalPrompt = await callClaudeSimple("Tu génères des system prompts pour personas de débat IA. Réponds UNIQUEMENT avec le system prompt.",
-        buildUserContent(`Analyse ce document. Génère un system prompt pour un persona qui représente la personne/entité. Capture expertise, style de pensée, priorités, objections récurrentes, vocabulaire propre. Nom : "${name || selectedDoc.name}". 4-5 phrases directives.`, [selectedDoc]));
+        buildUserContent(`Analyse ce document. Génère un system prompt pour un persona qui représente la personne/entité. Capture expertise, style de pensée, priorités, objections récurrentes. Nom : "${name || selectedDoc.name}". 4-5 phrases directives.`, [selectedDoc]));
     } else if (promptMode === "auto") {
       finalPrompt = await callClaudeSimple("Tu génères des system prompts pour personas de débat IA. Réponds UNIQUEMENT avec le system prompt.",
         `Génère un system prompt pour "${name}" dont le rôle est "${role}". Capture style de pensée et communication. 3-4 phrases max dans les débats.`);
@@ -383,7 +380,6 @@ function CustomPersonaBuilder({ onAdd, existingDocs, onCancel }) {
     setIsGenerating(false);
     onAdd({ id: `custom_${Date.now()}`, name: name || selectedDoc?.name.replace(/\.[^.]+$/, "") || "Custom", emoji, role, color, bg: "#FAFAFA", border: "#E5E7EB", systemPrompt: finalPrompt, voice: { pitch: 1, rate: 1, voiceIndex: Math.floor(Math.random() * 6) }, isCustom: true });
   };
-
   return (
     <div style={{ border: "1.5px dashed #D1D5DB", borderRadius: 10, padding: 16, background: "#FAFAFA" }}>
       <div style={{ fontSize: 13, fontWeight: 700, color: "#374151", marginBottom: 12 }}>➕ Persona IA custom</div>
@@ -396,9 +392,7 @@ function CustomPersonaBuilder({ onAdd, existingDocs, onCancel }) {
         <div style={{ marginBottom: 10 }}>
           <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 6 }}>Choisir un document :</div>
           {existingDocs.length === 0 ? <div style={{ fontSize: 12, color: "#9CA3AF", fontStyle: "italic" }}>Aucun document chargé.</div>
-            : <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>{existingDocs.map((d, i) => (
-                <button key={i} onClick={() => setSelectedDoc(d)} style={{ fontSize: 12, padding: "4px 10px", borderRadius: 6, cursor: "pointer", background: selectedDoc === d ? "#111827" : "#F3F4F6", color: selectedDoc === d ? "#fff" : "#374151", border: "none" }}>{d.name}</button>
-              ))}</div>}
+            : <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>{existingDocs.map((d, i) => <button key={i} onClick={() => setSelectedDoc(d)} style={{ fontSize: 12, padding: "4px 10px", borderRadius: 6, cursor: "pointer", background: selectedDoc === d ? "#111827" : "#F3F4F6", color: selectedDoc === d ? "#fff" : "#374151", border: "none" }}>{d.name}</button>)}</div>}
         </div>
       )}
       <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
@@ -409,9 +403,7 @@ function CustomPersonaBuilder({ onAdd, existingDocs, onCancel }) {
       {mode !== "doc" && (
         <div style={{ marginBottom: 10 }}>
           <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
-            {[["auto","✨ Auto"],["manual","✍️ Manuel"]].map(([m, label]) => (
-              <button key={m} onClick={() => setPromptMode(m)} style={{ fontSize: 11, padding: "4px 10px", borderRadius: 6, cursor: "pointer", background: promptMode === m ? "#374151" : "#F3F4F6", color: promptMode === m ? "#fff" : "#374151", border: "none" }}>{label}</button>
-            ))}
+            {[["auto","✨ Auto"],["manual","✍️ Manuel"]].map(([m, label]) => <button key={m} onClick={() => setPromptMode(m)} style={{ fontSize: 11, padding: "4px 10px", borderRadius: 6, cursor: "pointer", background: promptMode === m ? "#374151" : "#F3F4F6", color: promptMode === m ? "#fff" : "#374151", border: "none" }}>{label}</button>)}
           </div>
           {promptMode === "manual" && <textarea value={customPrompt} onChange={e => setCustomPrompt(e.target.value)} placeholder="Décris comment ce persona raisonne..." rows={3} style={{ width: "100%", border: "1.5px solid #E5E7EB", borderRadius: 8, padding: "8px 10px", fontSize: 13, resize: "none" }} />}
         </div>
@@ -424,14 +416,6 @@ function CustomPersonaBuilder({ onAdd, existingDocs, onCancel }) {
       </div>
     </div>
   );
-}
-
-// ─── BUILD ARTISTIC PERSONAS ──────────────────────────────────────────────────
-
-function buildArtisticPersonas(activeDisciplines, activeTransversals) {
-  const disciplines = ARTISTIC_DISCIPLINES.filter(d => activeDisciplines.includes(d.id)).map((d, i) => ({ ...d, voice: { pitch: 0.9 + i * 0.05, rate: 0.95, voiceIndex: i } }));
-  const transversals = ARTISTIC_TRANSVERSAL.filter(t => activeTransversals.includes(t.id)).map((t, i) => ({ ...t, voice: { pitch: 1.0 + i * 0.05, rate: 1.0, voiceIndex: i + 3 } }));
-  return [{ ...ARTISTIC_DA }, ...disciplines, ...transversals];
 }
 
 // ─── SETUP SCREEN ─────────────────────────────────────────────────────────────
@@ -448,7 +432,6 @@ function SetupScreen({ onStart }) {
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [personaSearchOverrides, setPersonaSearchOverrides] = useState({});
   const [disabledPersonas, setDisabledPersonas] = useState(new Set());
-  // Artistic
   const [activeDisciplines, setActiveDisciplines] = useState(["mise_en_scene", "scenographie"]);
   const [activeTransversals, setActiveTransversals] = useState(["production_art", "regie", "public_art"]);
   const [userPresets, setUserPresets] = useState([]);
@@ -480,8 +463,6 @@ function SetupScreen({ onStart }) {
           style={{ width: "100%", border: "2px solid #E5E7EB", borderRadius: 10, padding: "12px 14px", fontSize: 15, lineHeight: 1.5, resize: "none", fontFamily: "system-ui" }}
           onFocus={e => e.target.style.borderColor = "#111827"} onBlur={e => e.target.style.borderColor = "#E5E7EB"} />
       </div>
-
-      {/* Documents */}
       <div style={{ marginBottom: 24 }}>
         <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#374151", marginBottom: 8 }}>Documents de contexte <span style={{ color: "#9CA3AF", fontWeight: 400 }}>(optionnel)</span></label>
         {docs.length > 0 && <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>{docs.map((doc, i) => (
@@ -494,8 +475,6 @@ function SetupScreen({ onStart }) {
         <button onClick={() => fileRef.current.click()} style={{ width: "100%", border: "1.5px dashed #D1D5DB", borderRadius: 10, padding: "12px", background: "#FAFAFA", color: "#6B7280", fontSize: 13, cursor: "pointer" }}>📎 Ajouter PDF, image, texte, CSV…</button>
         <input ref={fileRef} type="file" multiple accept=".pdf,.txt,.md,.csv,.jpg,.jpeg,.png,.webp" style={{ display: "none" }} onChange={e => handleFiles(e.target.files)} />
       </div>
-
-      {/* Framework */}
       <div style={{ marginBottom: 20 }}>
         <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#374151", marginBottom: 8 }}>Cadre de réflexion</label>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -508,24 +487,20 @@ function SetupScreen({ onStart }) {
           ))}
         </div>
       </div>
-
-      {/* Artistic config */}
       {frameworkId === "artistique" && (
         <div style={{ marginBottom: 20, padding: 16, background: "#FAFAFA", border: "1.5px solid #DDD6FE", borderRadius: 12 }}>
           <ArtisticSetup activeDisciplines={activeDisciplines} setActiveDisciplines={setActiveDisciplines} activeTransversals={activeTransversals} setActiveTransversals={setActiveTransversals} userPresets={userPresets} onSavePreset={handleSavePreset} onLoadPreset={handleLoadPreset} />
         </div>
       )}
-
-      {/* Personas with toggle */}
       {allAiPersonas.length > 0 && (
         <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 12, color: "#9CA3AF", fontWeight: 700, marginBottom: 8 }}>PERSONAS IA — cliquez pour activer/désactiver</div>
+          <div style={{ fontSize: 12, color: "#9CA3AF", fontWeight: 700, marginBottom: 8 }}>PERSONAS IA</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
             {allAiPersonas.map(p => {
               const disabled = disabledPersonas.has(p.id);
               return (
-                <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, background: disabled ? "#F9FAFB" : p.bg, border: `1px solid ${disabled ? "#E5E7EB" : p.border}`, borderRadius: 8, padding: "5px 10px", opacity: disabled ? 0.5 : 1, transition: "all 0.15s" }}>
-                  <span style={{ fontSize: 14 }}>{p.emoji}</span>
+                <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, background: disabled ? "#F9FAFB" : p.bg, border: `1px solid ${disabled ? "#E5E7EB" : p.border}`, borderRadius: 8, padding: "5px 10px", opacity: disabled ? 0.5 : 1 }}>
+                  <span>{p.emoji}</span>
                   <span style={{ fontSize: 13, fontWeight: 600, color: disabled ? "#9CA3AF" : p.color, flex: 1 }}>{p.name}</span>
                   <span style={{ fontSize: 11, color: "#9CA3AF" }}>{p.role}</span>
                   {p.isCustom && <button onClick={() => setCustomPersonas(prev => prev.filter(cp => cp.id !== p.id))} style={{ background: "none", border: "none", color: "#9CA3AF", cursor: "pointer", fontSize: 11 }}>×</button>}
@@ -538,20 +513,13 @@ function SetupScreen({ onStart }) {
           </div>
         </div>
       )}
-
-      {/* Web search */}
       <div style={{ marginBottom: 16, display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "#F0F9FF", border: "1px solid #BAE6FD", borderRadius: 10 }}>
         <span>🌐</span>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "#0C4A6E" }}>Web search</div>
-          <div style={{ fontSize: 11, color: "#0369A1" }}>Les personas cherchent sur le web avant de répondre</div>
-        </div>
+        <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 700, color: "#0C4A6E" }}>Web search</div><div style={{ fontSize: 11, color: "#0369A1" }}>Les personas cherchent sur le web avant de répondre</div></div>
         <button onClick={() => setWebSearchEnabled(v => !v)} style={{ width: 40, height: 22, borderRadius: 11, border: "none", cursor: "pointer", background: webSearchEnabled ? "#0369A1" : "#CBD5E1", position: "relative" }}>
           <span style={{ position: "absolute", top: 2, width: 18, height: 18, borderRadius: "50%", background: "#fff", transition: "left 0.2s", left: webSearchEnabled ? 20 : 2 }} />
         </button>
       </div>
-
-      {/* Human participants */}
       <div style={{ marginBottom: 20 }}>
         <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#374151", marginBottom: 8 }}>Participants humains <span style={{ color: "#9CA3AF", fontWeight: 400 }}>(optionnel)</span></label>
         {humanParticipants.length > 0 && <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>{humanParticipants.map(h => (
@@ -572,18 +540,13 @@ function SetupScreen({ onStart }) {
               <button onClick={addHuman} style={{ flex: 2, background: "#059669", color: "#fff", border: "none", borderRadius: 8, padding: "7px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Ajouter</button>
             </div>
           </div>
-        ) : (
-          <button onClick={() => setShowHumanBuilder(true)} style={{ width: "100%", border: "1.5px dashed #A7F3D0", borderRadius: 10, padding: "10px", background: "#F0FDF4", color: "#059669", fontSize: 13, cursor: "pointer" }}>👤 Ajouter un participant humain</button>
-        )}
+        ) : <button onClick={() => setShowHumanBuilder(true)} style={{ width: "100%", border: "1.5px dashed #A7F3D0", borderRadius: 10, padding: "10px", background: "#F0FDF4", color: "#059669", fontSize: 13, cursor: "pointer" }}>👤 Ajouter un participant humain</button>}
       </div>
-
-      {/* Custom persona */}
       <div style={{ marginBottom: 24 }}>
         {!showCustomBuilder
           ? <button onClick={() => setShowCustomBuilder(true)} style={{ width: "100%", border: "1.5px dashed #D1D5DB", borderRadius: 10, padding: "10px", background: "#FAFAFA", color: "#6B7280", fontSize: 13, cursor: "pointer" }}>➕ Ajouter un persona IA custom</button>
           : <CustomPersonaBuilder existingDocs={docs} onAdd={p => { setCustomPersonas(prev => [...prev, p]); setShowCustomBuilder(false); }} onCancel={() => setShowCustomBuilder(false)} />}
       </div>
-
       <button onClick={() => onStart({ topic, frameworkId, customPersonas, humanParticipants, docs, webSearchEnabled, personaSearchOverrides, disabledPersonas: [...disabledPersonas], activeDisciplines, activeTransversals })}
         disabled={!topic.trim() || activePersonas.length === 0}
         style={{ width: "100%", background: topic.trim() && activePersonas.length > 0 ? "#111827" : "#E5E7EB", color: topic.trim() && activePersonas.length > 0 ? "#fff" : "#9CA3AF", border: "none", borderRadius: 10, padding: "14px", fontSize: 15, fontWeight: 700, cursor: topic.trim() && activePersonas.length > 0 ? "pointer" : "not-allowed" }}>
@@ -620,6 +583,7 @@ function MessageBubble({ msg, aiPersonas, humanParticipants, onChallenge, onSpea
         )}
       </div>
       {msg.searching && <div style={{ fontSize: 12, color: "#2563EB", background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 6, padding: "4px 10px", marginBottom: 6, display: "inline-flex", gap: 6, animation: "pulse 1s infinite" }}>🔍 Recherche…</div>}
+      {msg.error && <div style={{ fontSize: 12, color: "#DC2626", background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 6, padding: "6px 10px", marginBottom: 4 }}>⚠️ {msg.error}</div>}
       <div style={{ background: persona.bg, border: `1.5px solid ${persona.border}`, borderRadius: 12, borderTopLeftRadius: isHuman ? 12 : 4, padding: "10px 14px", fontSize: 14, lineHeight: 1.65, color: "#1F2937", fontFamily: isSecretary ? "system-ui" : "Georgia, serif", whiteSpace: "pre-wrap" }}>
         {msg.text || (msg.streaming ? <span style={{ color: "#9CA3AF" }}>…</span> : "")}
         {msg.streaming && msg.text && <span style={{ display: "inline-block", width: 2, height: 14, background: persona.color, marginLeft: 2, animation: "blink 0.8s infinite", verticalAlign: "middle" }} />}
@@ -681,7 +645,10 @@ function DebateScreen({ table, onUpdate, onClose }) {
         () => setMessages(prev => prev.map(m => m.id === msgId ? { ...m, searching: true } : m)),
         query => { searches.push(query); setMessages(prev => prev.map(m => m.id === msgId ? { ...m, searching: false, searches: [...searches] } : m)); }
       );
-    } catch { fullText = "(Erreur de connexion)"; }
+    } catch (err) {
+      setMessages(prev => prev.map(m => m.id === msgId ? { ...m, streaming: false, error: err.message } : m));
+      return { id: msgId, role: "persona", personaId: persona.id, text: "", streaming: false, error: err.message };
+    }
     const finalMsg = { id: msgId, role: "persona", personaId: persona.id, text: fullText, streaming: false, searching: false, searches };
     setMessages(prev => prev.map(m => m.id === msgId ? finalMsg : m));
     if (audioEnabled) { setSpeakingMsgId(msgId); audioEngine.speak(fullText, persona.voice, () => setSpeakingMsgId(null)); }
@@ -746,12 +713,11 @@ function DebateScreen({ table, onUpdate, onClose }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
-      {/* Header */}
       <div style={{ borderBottom: "1px solid #F3F4F6", padding: "10px 14px", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
         <button onClick={onClose} style={{ background: "none", border: "none", color: "#6B7280", cursor: "pointer", fontSize: 18, padding: 0 }}>←</button>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 700, fontSize: 13, color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{table.topic}</div>
-          <div style={{ fontSize: 11, color: "#9CA3AF" }}>{framework?.label}{isMixedTable && ` · ${humanParticipants.length} humain(s)`} · {status === "synthesized" ? "✅ Synthétisée" : "🟢 En cours"}</div>
+          <div style={{ fontSize: 11, color: "#9CA3AF" }}>{framework?.label || "Table libre"}{isMixedTable && ` · ${humanParticipants.length} humain(s)`} · {status === "synthesized" ? "✅ Synthétisée" : "🟢 En cours"}</div>
         </div>
         <button onClick={() => { setAudioEnabled(v => !v); if (audioEnabled) { audioEngine.stop(); setSpeakingMsgId(null); } }}
           style={{ width: 34, height: 18, borderRadius: 9, border: "none", cursor: "pointer", background: audioEnabled ? "#7C3AED" : "#CBD5E1", position: "relative" }}>
@@ -767,9 +733,7 @@ function DebateScreen({ table, onUpdate, onClose }) {
         <input ref={fileRef} type="file" multiple accept=".pdf,.txt,.md,.csv,.jpg,.jpeg,.png,.webp" style={{ display: "none" }} onChange={e => handleFiles(e.target.files)} />
       </div>
 
-      {/* Messages */}
       <div style={{ flex: 1, overflowY: "auto", padding: "14px" }}>
-        {/* Personas chips with toggle */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 12, paddingBottom: 10, borderBottom: "1px solid #F3F4F6" }}>
           {allAiPersonas.map(p => {
             const disabled = disabledPersonas.has(p.id);
@@ -779,10 +743,7 @@ function DebateScreen({ table, onUpdate, onClose }) {
                   <span style={{ fontSize: 12 }}>{p.emoji}</span>
                   <span style={{ fontSize: 11, fontWeight: 600, color: disabled ? "#9CA3AF" : p.color }}>{p.name}</span>
                 </button>
-                <button onClick={() => togglePersona(p.id)} title={disabled ? "Activer" : "Désactiver"}
-                  style={{ background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 10, color: disabled ? "#9CA3AF" : p.color }}>
-                  {disabled ? "○" : "●"}
-                </button>
+                <button onClick={() => togglePersona(p.id)} title={disabled ? "Activer" : "Désactiver"} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 10, color: disabled ? "#9CA3AF" : p.color }}>{disabled ? "○" : "●"}</button>
                 <button onClick={() => togglePersonaSearch(p.id)} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 10, opacity: personaSearchActive(p.id) ? 1 : 0.3 }}>🌐</button>
               </div>
             );
@@ -796,7 +757,6 @@ function DebateScreen({ table, onUpdate, onClose }) {
           ))}
         </div>
 
-        {/* Docs */}
         {docs.length > 0 && <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 10 }}>{docs.map((doc, i) => (
           <div key={i} style={{ display: "flex", alignItems: "center", gap: 4, background: "#F3F4F6", border: "1px solid #E5E7EB", borderRadius: 6, padding: "2px 8px", fontSize: 11 }}>
             <span>{doc.type === "pdf" ? "📄" : doc.type === "image" ? "🖼️" : "📝"}</span>
@@ -831,7 +791,6 @@ function DebateScreen({ table, onUpdate, onClose }) {
         </div>
       )}
 
-      {/* Input */}
       <div style={{ borderTop: "1px solid #F3F4F6", padding: "10px 14px", flexShrink: 0 }}>
         {isMixedTable && (
           <div style={{ display: "flex", gap: 5, marginBottom: 8, flexWrap: "wrap" }}>
@@ -870,56 +829,118 @@ function DebateScreen({ table, onUpdate, onClose }) {
 
 // ─── TABLE LIST ───────────────────────────────────────────────────────────────
 
-function TableList({ tables, onOpen, onNew }) {
-  const sorted = [...tables].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+function TableList({ tables, onOpen, onNew, onDelete, onArchive, onRename, searchQuery, setSearchQuery }) {
+  const [confirmDelete, setConfirmDelete] = useState(null);
+  const [renamingId, setRenamingId] = useState(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [showArchived, setShowArchived] = useState(false);
+
+  const filtered = [...tables]
+    .filter(t => showArchived ? t.archived : !t.archived)
+    .filter(t => !searchQuery || t.topic.toLowerCase().includes(searchQuery.toLowerCase()))
+    .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+
+  const archivedCount = tables.filter(t => t.archived).length;
+
   return (
     <div style={{ maxWidth: 680, margin: "0 auto", padding: "24px 20px" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
         <div>
           <div style={{ fontWeight: 800, fontSize: 22, color: "#111827", letterSpacing: "-0.5px" }}>Table Virtuelle</div>
           <div style={{ fontSize: 13, color: "#9CA3AF" }}>Plusieurs cerveaux, une seule décision</div>
         </div>
         <button onClick={onNew} style={{ background: "#111827", color: "#fff", border: "none", borderRadius: 10, padding: "10px 18px", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>+ Nouvelle table</button>
       </div>
-      {sorted.length === 0 ? (
+
+      {/* Search + filter */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="🔍 Rechercher une table…"
+          style={{ flex: 1, border: "1.5px solid #E5E7EB", borderRadius: 8, padding: "8px 12px", fontSize: 13 }}
+          onFocus={e => e.target.style.borderColor = "#111827"} onBlur={e => e.target.style.borderColor = "#E5E7EB"} />
+        {archivedCount > 0 && (
+          <button onClick={() => setShowArchived(v => !v)} style={{ fontSize: 12, padding: "8px 12px", borderRadius: 8, border: `1.5px solid ${showArchived ? "#111827" : "#E5E7EB"}`, background: showArchived ? "#111827" : "#fff", color: showArchived ? "#fff" : "#6B7280", cursor: "pointer", whiteSpace: "nowrap" }}>
+            {showArchived ? "← Actives" : `📦 Archives (${archivedCount})`}
+          </button>
+        )}
+      </div>
+
+      {filtered.length === 0 ? (
         <div style={{ textAlign: "center", color: "#9CA3AF", padding: "60px 0" }}>
           <div style={{ fontSize: 40, marginBottom: 12 }}>🪑</div>
-          <div style={{ fontSize: 14 }}>Aucune table encore.</div>
+          <div style={{ fontSize: 14 }}>{searchQuery ? "Aucune table trouvée." : showArchived ? "Aucune table archivée." : "Aucune table encore."}</div>
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {sorted.map(table => {
+          {filtered.map(table => {
             const fw = FRAMEWORKS[table.frameworkId];
             const msgCount = (table.messages || []).filter(m => m.role !== "secretary").length;
             const humanCount = table.humanParticipants?.length || 0;
-            const isArtistic = table.frameworkId === "artistique";
+            const isRenaming = renamingId === table.id;
+
             return (
-              <button key={table.id} onClick={() => onOpen(table.id)}
-                style={{ background: "#fff", border: "1.5px solid #E5E7EB", borderRadius: 12, padding: "14px 16px", cursor: "pointer", textAlign: "left" }}
-                onMouseEnter={e => e.currentTarget.style.borderColor = "#111827"} onMouseLeave={e => e.currentTarget.style.borderColor = "#E5E7EB"}>
-                <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, flexWrap: "wrap" }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: table.status === "synthesized" ? "#059669" : "#2563EB", background: table.status === "synthesized" ? "#ECFDF5" : "#EFF6FF", borderRadius: 4, padding: "1px 6px" }}>
-                        {table.status === "synthesized" ? "✅ Synthétisée" : "🟢 Ouverte"}
-                      </span>
-                      <span style={{ fontSize: 11, color: "#9CA3AF" }}>{isArtistic ? "🎨 Projet Artistique" : fw?.label}</span>
-                      {humanCount > 0 && <span style={{ fontSize: 11, color: "#059669", background: "#F0FDF4", borderRadius: 4, padding: "1px 5px" }}>👥 Mixte</span>}
-                      {table.webSearchEnabled && <span style={{ fontSize: 11, color: "#0369A1", background: "#EFF6FF", borderRadius: 4, padding: "1px 5px" }}>🌐</span>}
+              <div key={table.id} style={{ background: "#fff", border: "1.5px solid #E5E7EB", borderRadius: 12, overflow: "hidden" }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = "#D1D5DB"} onMouseLeave={e => e.currentTarget.style.borderColor = "#E5E7EB"}>
+                <div onClick={() => !isRenaming && onOpen(table.id)} style={{ padding: "14px 16px", cursor: isRenaming ? "default" : "pointer" }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, flexWrap: "wrap" }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: table.status === "synthesized" ? "#059669" : "#2563EB", background: table.status === "synthesized" ? "#ECFDF5" : "#EFF6FF", borderRadius: 4, padding: "1px 6px" }}>
+                          {table.status === "synthesized" ? "✅ Synthétisée" : "🟢 Ouverte"}
+                        </span>
+                        <span style={{ fontSize: 11, color: "#9CA3AF" }}>{table.frameworkId === "artistique" ? "🎨 Artistique" : fw?.label}</span>
+                        {humanCount > 0 && <span style={{ fontSize: 11, color: "#059669", background: "#F0FDF4", borderRadius: 4, padding: "1px 5px" }}>👥 Mixte</span>}
+                        {table.webSearchEnabled && <span style={{ fontSize: 11, color: "#0369A1", background: "#EFF6FF", borderRadius: 4, padding: "1px 5px" }}>🌐</span>}
+                        {table.archived && <span style={{ fontSize: 11, color: "#9CA3AF", background: "#F3F4F6", borderRadius: 4, padding: "1px 5px" }}>📦 Archivée</span>}
+                      </div>
+                      {isRenaming ? (
+                        <div style={{ display: "flex", gap: 6 }} onClick={e => e.stopPropagation()}>
+                          <input value={renameValue} onChange={e => setRenameValue(e.target.value)} autoFocus
+                            onKeyDown={e => { if (e.key === "Enter") { onRename(table.id, renameValue); setRenamingId(null); } if (e.key === "Escape") setRenamingId(null); }}
+                            style={{ flex: 1, border: "1.5px solid #111827", borderRadius: 6, padding: "4px 8px", fontSize: 14, fontWeight: 600 }} />
+                          <button onClick={() => { onRename(table.id, renameValue); setRenamingId(null); }} style={{ background: "#111827", color: "#fff", border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 12, cursor: "pointer" }}>✓</button>
+                          <button onClick={() => setRenamingId(null)} style={{ background: "#F3F4F6", border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 12, cursor: "pointer", color: "#6B7280" }}>✕</button>
+                        </div>
+                      ) : (
+                        <div style={{ fontWeight: 600, fontSize: 14, color: "#111827", marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{table.topic}</div>
+                      )}
+                      <div style={{ fontSize: 11, color: "#9CA3AF" }}>
+                        {formatDate(table.updatedAt)} · {humanCount > 0 && `${humanCount} humain(s) + `}{msgCount} échange{msgCount > 1 ? "s" : ""}
+                        {table.docs?.length > 0 && ` · 📎 ${table.docs.length}`}
+                      </div>
                     </div>
-                    <div style={{ fontWeight: 600, fontSize: 14, color: "#111827", marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{table.topic}</div>
-                    <div style={{ fontSize: 11, color: "#9CA3AF" }}>
-                      {humanCount > 0 && `${humanCount} humain(s) + `}{msgCount} échange{msgCount > 1 ? "s" : ""}
-                      {table.docs?.length > 0 && ` · 📎 ${table.docs.length}`}
-                    </div>
+                    <span style={{ fontSize: 18, color: "#D1D5DB" }}>→</span>
                   </div>
-                  <span style={{ fontSize: 18, color: "#D1D5DB" }}>→</span>
                 </div>
-              </button>
+
+                {/* Actions bar */}
+                <div style={{ borderTop: "1px solid #F9FAFB", padding: "6px 16px", display: "flex", gap: 8, background: "#FAFAFA" }}>
+                  <button onClick={e => { e.stopPropagation(); setRenamingId(table.id); setRenameValue(table.topic); }}
+                    style={{ fontSize: 11, color: "#6B7280", background: "none", border: "none", cursor: "pointer", padding: "2px 6px" }}>✏️ Renommer</button>
+                  <button onClick={e => { e.stopPropagation(); onArchive(table.id); }}
+                    style={{ fontSize: 11, color: "#6B7280", background: "none", border: "none", cursor: "pointer", padding: "2px 6px" }}>
+                    {table.archived ? "📤 Désarchiver" : "📦 Archiver"}
+                  </button>
+                  {confirmDelete === table.id ? (
+                    <div style={{ display: "flex", gap: 6, marginLeft: "auto" }} onClick={e => e.stopPropagation()}>
+                      <span style={{ fontSize: 11, color: "#DC2626", alignSelf: "center" }}>Confirmer ?</span>
+                      <button onClick={() => { onDelete(table.id); setConfirmDelete(null); }} style={{ fontSize: 11, background: "#DC2626", color: "#fff", border: "none", borderRadius: 4, padding: "2px 8px", cursor: "pointer" }}>Supprimer</button>
+                      <button onClick={() => setConfirmDelete(null)} style={{ fontSize: 11, background: "#F3F4F6", border: "none", borderRadius: 4, padding: "2px 8px", cursor: "pointer", color: "#374151" }}>Annuler</button>
+                    </div>
+                  ) : (
+                    <button onClick={e => { e.stopPropagation(); setConfirmDelete(table.id); }}
+                      style={{ fontSize: 11, color: "#DC2626", background: "none", border: "none", cursor: "pointer", padding: "2px 6px", marginLeft: "auto" }}>🗑 Supprimer</button>
+                  )}
+                </div>
+              </div>
             );
           })}
         </div>
       )}
+
+      {/* Feedback */}
+      <div style={{ marginTop: 32, textAlign: "center", fontSize: 12, color: "#9CA3AF" }}>
+        Version bêta · <a href={`mailto:${FEEDBACK_EMAIL}`} style={{ color: "#6D28D9", textDecoration: "none" }}>Envoyer un retour</a>
+      </div>
     </div>
   );
 }
@@ -931,8 +952,15 @@ export default function App() {
   const [view, setView] = useState("list");
   const [activeTableId, setActiveTableId] = useState(null);
   const [loaded, setLoaded] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
-  useEffect(() => { loadTables().then(t => { setTables(t); setLoaded(true); }); }, []);
+  useEffect(() => {
+    Promise.all([loadTables(), getOnboardingDone()]).then(([t, done]) => {
+      setTables(t); setLoaded(true);
+      if (!done) setShowOnboarding(true);
+    });
+  }, []);
 
   const activeTable = tables.find(t => t.id === activeTableId);
 
@@ -947,6 +975,23 @@ export default function App() {
     setTables(updated); saveTables(updated);
   };
 
+  const handleDelete = (id) => {
+    const updated = tables.filter(t => t.id !== id); setTables(updated); saveTables(updated);
+  };
+
+  const handleArchive = (id) => {
+    const updated = tables.map(t => t.id === id ? { ...t, archived: !t.archived, updatedAt: Date.now() } : t);
+    setTables(updated); saveTables(updated);
+  };
+
+  const handleRename = (id, newTopic) => {
+    if (!newTopic.trim()) return;
+    const updated = tables.map(t => t.id === id ? { ...t, topic: newTopic.trim(), updatedAt: Date.now() } : t);
+    setTables(updated); saveTables(updated);
+  };
+
+  const handleCloseOnboarding = async () => { await setOnboardingDone(); setShowOnboarding(false); };
+
   if (!loaded) return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", color: "#9CA3AF" }}>Chargement…</div>;
 
   return (
@@ -957,7 +1002,16 @@ export default function App() {
         @keyframes pulse{0%,100%{opacity:0.5}50%{opacity:1}}
         *{box-sizing:border-box} textarea,input,button{font-family:inherit} textarea:focus,input:focus{outline:none}
       `}</style>
-      {view === "list" && <TableList tables={tables} onOpen={id => { setActiveTableId(id); setView("debate"); }} onNew={() => { setActiveTableId(null); setView("setup"); }} />}
+
+      {showOnboarding && <OnboardingModal onClose={handleCloseOnboarding} />}
+
+      {view === "list" && (
+        <TableList tables={tables} searchQuery={searchQuery} setSearchQuery={setSearchQuery}
+          onOpen={id => { setActiveTableId(id); setView("debate"); }}
+          onNew={() => { setActiveTableId(null); setView("setup"); }}
+          onDelete={handleDelete} onArchive={handleArchive} onRename={handleRename} />
+      )}
+
       {view === "setup" && (
         <>
           <div style={{ borderBottom: "1px solid #F3F4F6", padding: "12px 20px", display: "flex", alignItems: "center", gap: 10 }}>
@@ -967,6 +1021,7 @@ export default function App() {
           <SetupScreen onStart={handleStart} />
         </>
       )}
+
       {view === "debate" && activeTable && <DebateScreen table={activeTable} onUpdate={handleUpdate} onClose={() => setView("list")} />}
     </div>
   );
