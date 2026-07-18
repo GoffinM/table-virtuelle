@@ -80,28 +80,33 @@ async function getOnboardingDone() { try { const r = await window.storage.get(ON
 async function setOnboardingDone() { try { await window.storage.set(ONBOARDING_KEY, "1"); } catch {} }
 
 // ─── API ──────────────────────────────────────────────────────────────────────
-async function streamAPI(body, onChunk) {
-  const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json", "x-beta-password": localStorage.getItem("tv_beta_access") || "" }, body: JSON.stringify({ ...body, stream: true }) });
+async function streamAPI(body, onChunk, signal) {
+  const r = await fetch("/api/chat", { method: "POST", signal, headers: { "Content-Type": "application/json", "x-beta-password": localStorage.getItem("tv_beta_access") || "" }, body: JSON.stringify({ ...body, stream: true }) });
   if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e?.error?.message || `API ${r.status}`); }
   const reader = r.body.getReader(), dec = new TextDecoder(); let buf = "";
-  while (true) {
-    const { done, value } = await reader.read(); if (done) break;
-    buf += dec.decode(value, { stream: true });
-    const lines = buf.split("\n"); buf = lines.pop();
-    for (const line of lines) {
-      if (!line.startsWith("data: ")) continue;
-      const d = line.slice(6).trim(); if (d === "[DONE]") return;
-      try { const ev = JSON.parse(d); if (ev.type === "content_block_delta" && ev.delta?.text) onChunk(ev.delta.text); } catch {}
+  try {
+    while (true) {
+      const { done, value } = await reader.read(); if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split("\n"); buf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const d = line.slice(6).trim(); if (d === "[DONE]") return;
+        try { const ev = JSON.parse(d); if (ev.type === "content_block_delta" && ev.delta?.text) onChunk(ev.delta.text); } catch {}
+      }
     }
+  } catch (err) {
+    if (err.name === "AbortError") return; // arrêt propre
+    throw err;
   }
 }
 
-async function streamPersonaCall(systemPrompt, messages, webSearch, onChunk, onSearchStart, onSearchEnd) {
+async function streamPersonaCall(systemPrompt, messages, webSearch, onChunk, onSearchStart, onSearchEnd, signal) {
   const tools = webSearch ? [{ type: "web_search_20250305", name: "web_search" }] : [];
   const callAPI = async (msgs) => {
     const body = { model: "claude-sonnet-4-6", max_tokens: 1000, stream: true, system: systemPrompt, messages: msgs };
     if (tools.length) body.tools = tools;
-    const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json", "x-beta-password": localStorage.getItem("tv_beta_access") || "" }, body: JSON.stringify(body) });
+    const r = await fetch("/api/chat", { method: "POST", signal, headers: { "Content-Type": "application/json", "x-beta-password": localStorage.getItem("tv_beta_access") || "" }, body: JSON.stringify(body) });
     if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e?.error?.message || `API ${r.status}`); }
     return r;
   };
@@ -950,9 +955,19 @@ function DebateScreen({ table, onUpdate, onClose }) {
   const abortRef = useRef(null);
 
   const handleStop = () => {
-    if (abortRef.current) { abortRef.current.abort(); abortRef.current = null; }
-    setMessages(prev => prev.map(m => m.streaming ? { ...m, streaming: false, text: (m.text || "") + " ⛔" } : m));
-    setIsRunning(false); setIsSynthesizing(false);
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
+    }
+    // Marquer les bulles en streaming comme terminées proprement
+    setMessages(prev => prev.map(m => m.streaming
+      ? { ...m, streaming: false, text: m.text ? m.text + "
+
+*[Arrêté]*" : "*[Arrêté]*" }
+      : m
+    ));
+    setIsRunning(false);
+    setIsSynthesizing(false);
   };
   const [status, setStatus] = useState(table.status || "open");
   const [sessionPhase, setSessionPhase] = useState(table.sessionPhase || (table.useGroups && table.groups?.length > 0 ? "groups" : "plenary"));
@@ -1005,7 +1020,7 @@ function DebateScreen({ table, onUpdate, onClose }) {
     return `Sujet : "${table.topic}"\nFramework : ${framework?.label || "Libre"}${gName ? `\nGrappe : ${gName}` : ""}${docNote}\n\n${history || "(début du débat)"}`;
   };
 
-  const streamPersona = async (persona, userMsg, currentMsgs, gid) => {
+  const streamPersona = async (persona, userMsg, currentMsgs, gid, signal) => {
     const msgId = `${Date.now()}_${Math.random()}`, searches = [];
     setMessages(prev => [...prev, { id: msgId, role: "persona", personaId: persona.id, groupId: gid !== "plenary" ? gid : undefined, text: "", streaming: true, searching: false, searches: [] }]);
     const context = buildContext(currentMsgs, gid);
@@ -1017,7 +1032,8 @@ function DebateScreen({ table, onUpdate, onClose }) {
       await streamPersonaCall(sysPrompt, [{ role: "user", content: userContent }], globalSearch,
         chunk => { fullText += chunk; setMessages(prev => prev.map(m => m.id === msgId ? { ...m, text: fullText, searching: false } : m)); },
         () => setMessages(prev => prev.map(m => m.id === msgId ? { ...m, searching: true } : m)),
-        query => { searches.push(query); setMessages(prev => prev.map(m => m.id === msgId ? { ...m, searching: false, searches: [...searches] } : m)); }
+        query => { searches.push(query); setMessages(prev => prev.map(m => m.id === msgId ? { ...m, searching: false, searches: [...searches] } : m)); },
+        signal
       );
     } catch (err) {
       setMessages(prev => prev.map(m => m.id === msgId ? { ...m, streaming: false, error: err.message } : m));
@@ -1032,6 +1048,9 @@ function DebateScreen({ table, onUpdate, onClose }) {
   const handleSend = async (overrideText) => {
     const userText = (overrideText || input).trim(); if (!userText || isRunning) return;
     setInput(""); setInterimTranscript(""); setIsRunning(true);
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const signal = controller.signal;
     const gid = activeGroupId;
     const userMsg = { id: `msg_${Date.now()}`, role: isMixedTable ? "human" : "user", speakerId: activeSpeaker, groupId: gid !== "plenary" ? gid : undefined, text: userText };
     const mentionMatch = userText.match(/@([^\s]+)/);
@@ -1040,18 +1059,19 @@ function DebateScreen({ table, onUpdate, onClose }) {
     const updatedMsgs = [...messages, userMsg]; setMessages(updatedMsgs);
     try {
       if (targetPersona) {
-        const r1 = await streamPersona(targetPersona, userText, updatedMsgs, gid);
+        const r1 = await streamPersona(targetPersona, userText, updatedMsgs, gid, signal);
         const afterTarget = [...updatedMsgs, r1];
         const raw = await callClaudeSimple("Réponds UNIQUEMENT avec un tableau JSON d'IDs (0-2 max). Ex: [\"noir\"] ou []",
           `Débat :\n${buildContext(afterTarget, gid)}\nDisponibles (sauf ${targetPersona.id}) : ${activePersonas.filter(p => p.id !== targetPersona.id).map(p => `${p.id}(${p.role})`).join(", ")}\nQui réagit ? 0-2 max.`);
         let ids = []; try { ids = JSON.parse(raw.replace(/```json|```/g, "").trim()); } catch {}
         let cur = afterTarget;
-        for (const pid of ids.slice(0, 2)) { const p = activePersonas.find(x => x.id === pid); if (p) { const r = await streamPersona(p, userText, cur, gid); cur = [...cur, r]; await new Promise(res => setTimeout(res, 300)); } }
+        for (const pid of ids.slice(0, 2)) { const p = activePersonas.find(x => x.id === pid); if (p) { const r = await streamPersona(p, userText, cur, gid, signal); cur = [...cur, r]; await new Promise(res => setTimeout(res, 300)); } }
       } else {
         let cur = updatedMsgs;
         for (const persona of activePersonas) { const r = await streamPersona(persona, userText, cur, gid); cur = [...cur, r]; await new Promise(res => setTimeout(res, 300)); }
       }
     } catch (err) { console.error(err); }
+    abortRef.current = null;
     setIsRunning(false);
 
     // Check plenary readiness after some exchanges
@@ -1069,6 +1089,9 @@ function DebateScreen({ table, onUpdate, onClose }) {
 
   const startPlenary = async () => {
     setIsRunning(true);
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const signal = controller.signal;
     setMessages(prev => [...prev, { id: `plenary_${Date.now()}`, role: "plenary_start", text: "" }]);
     setActiveGroupId("plenary"); setSessionPhase("plenary");
     const snapshot = [...messages];
@@ -1082,11 +1105,12 @@ function DebateScreen({ table, onUpdate, onClose }) {
         await streamAPI({ model: "claude-sonnet-4-6", max_tokens: 600,
           system: `Tu es le Porte-parole de la grappe "${group.name}" en séance plénière. Présente la position et les tensions internes de ton groupe. Style : clair, représentatif. 4-5 phrases.`,
           messages: [{ role: "user", content: `Échanges de la grappe "${group.name}" :\n\n${ctx}\n\nPrésente la position de ton groupe en plénière.` }]
-        }, chunk => { fullText += chunk; setMessages(prev => prev.map(m => m.id === msgId ? { ...m, text: fullText } : m)); });
+        }, chunk => { fullText += chunk; setMessages(prev => prev.map(m => m.id === msgId ? { ...m, text: fullText } : m)); }, signal);
       } catch {}
       setMessages(prev => prev.map(m => m.id === msgId ? { ...m, streaming: false } : m));
       await new Promise(res => setTimeout(res, 500));
     }
+    abortRef.current = null;
     setIsRunning(false); setPlenaryReady(false);
   };
 
@@ -1103,15 +1127,18 @@ function DebateScreen({ table, onUpdate, onClose }) {
 
   const handleSynthesize = async () => {
     setIsSynthesizing(true);
+    const controller = new AbortController();
+    abortRef.current = controller;
     const msgId = `sec_${Date.now()}`;
     setMessages(prev => [...prev, { id: msgId, role: "secretary", text: "", streaming: true }]);
     let fullText = "";
     try {
       await streamAPI({ model: "claude-sonnet-4-6", max_tokens: 1500, system: SECRETARY_PROMPT,
         messages: [{ role: "user", content: `Débat complet :\n\n${buildContext(messages, null)}` }]
-      }, chunk => { fullText += chunk; setMessages(prev => prev.map(m => m.id === msgId ? { ...m, text: fullText } : m)); });
-    } catch {}
+      }, chunk => { fullText += chunk; setMessages(prev => prev.map(m => m.id === msgId ? { ...m, text: fullText } : m)); }, controller.signal);
+    } catch (err) { if (err.name !== "AbortError") console.error(err); }
     setMessages(prev => prev.map(m => m.id === msgId ? { ...m, streaming: false } : m));
+    abortRef.current = null;
     setStatus("synthesized"); setIsSynthesizing(false);
   };
 
@@ -1255,8 +1282,8 @@ function DebateScreen({ table, onUpdate, onClose }) {
           <button onClick={() => handleSend()} disabled={!input.trim() || isRunning}
             style={{ background: input.trim() && !isRunning ? (currentGroup?.color || activeSpeakerObj?.color || "#111827") : "#E5E7EB", color: input.trim() && !isRunning ? "#fff" : "#9CA3AF", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 14, fontWeight: 700, cursor: input.trim() && !isRunning ? "pointer" : "not-allowed" }}>→</button>
         </div>
-        {messages.filter(m => m.role !== "secretary").length >= 2 && status === "open" && (
-          <button onClick={handleSynthesize} disabled={isSynthesizing || isRunning}
+        {messages.filter(m => m.role !== "secretary" && m.role !== "plenary_start" && m.role !== "group_synthesis").length >= 2 && status === "open" && !isRunning && (
+          <button onClick={handleSynthesize} disabled={isSynthesizing}
             style={{ marginTop: 8, width: "100%", background: "none", border: "1px solid #E5E7EB", borderRadius: 8, padding: "6px", fontSize: 12, color: "#6B7280", cursor: isSynthesizing || isRunning ? "not-allowed" : "pointer" }}>
             📋 Clôturer et synthétiser
           </button>
