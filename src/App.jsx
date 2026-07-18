@@ -691,6 +691,7 @@ function SetupScreen({ onStart }) {
   const [activeTransversals, setActiveTransversals] = useState(["production_art", "regie", "public_art"]);
   const [userPresets, setUserPresets] = useState([]);
   const [useGroups, setUseGroups] = useState(false);
+  const [plenaryFirst, setPlenaryFirst] = useState(false);
   const [groups, setGroups] = useState([]);
   const [isSuggesting, setIsSuggesting] = useState(false);
   const fileRef = useRef();
@@ -797,7 +798,26 @@ function SetupScreen({ onStart }) {
               <span style={{ position: "absolute", top: 2, width: 18, height: 18, borderRadius: "50%", background: "#fff", transition: "left 0.2s", left: useGroups ? 20 : 2 }} />
             </button>
           </div>
-          {useGroups && <GroupsManager personas={activePersonas} groups={groups} setGroups={setGroups} onSuggest={suggestGroups} isSuggesting={isSuggesting} />}
+          {useGroups && (
+            <>
+              <GroupsManager personas={activePersonas} groups={groups} setGroups={setGroups} onSuggest={suggestGroups} isSuggesting={isSuggesting} />
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 12, color: "#9CA3AF", fontWeight: 700, marginBottom: 8 }}>MODE DE DÉMARRAGE</div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={() => setPlenaryFirst(false)}
+                    style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: `2px solid ${!plenaryFirst ? "#7C3AED" : "#E5E7EB"}`, background: !plenaryFirst ? "#F5F3FF" : "#fff", color: !plenaryFirst ? "#7C3AED" : "#6B7280", fontSize: 12, fontWeight: !plenaryFirst ? 700 : 400, cursor: "pointer", textAlign: "left" }}>
+                    <div>🗂️ Grappes d'abord</div>
+                    <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 2 }}>Sous-groupes → Plénière</div>
+                  </button>
+                  <button onClick={() => setPlenaryFirst(true)}
+                    style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: `2px solid ${plenaryFirst ? "#7C3AED" : "#E5E7EB"}`, background: plenaryFirst ? "#F5F3FF" : "#fff", color: plenaryFirst ? "#7C3AED" : "#6B7280", fontSize: 12, fontWeight: plenaryFirst ? 700 : 400, cursor: "pointer", textAlign: "left" }}>
+                    <div>🏛️ Plénière d'abord</div>
+                    <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 2 }}>Plénière → Éclater en grappes</div>
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -838,7 +858,7 @@ function SetupScreen({ onStart }) {
           : <PersonaProfileBuilder existingDocs={docs} onAdd={p => { setCustomPersonas(prev => [...prev, p]); setShowCustomBuilder(false); }} onCancel={() => setShowCustomBuilder(false)} />}
       </div>
 
-      <button onClick={() => onStart({ topic, frameworkId, customPersonas, humanParticipants, docs, webSearchEnabled, disabledPersonas: [...disabledPersonas], activeDisciplines, activeTransversals, groups: useGroups ? groups : [], useGroups })}
+      <button onClick={() => onStart({ topic, frameworkId, customPersonas, humanParticipants, docs, webSearchEnabled, disabledPersonas: [...disabledPersonas], activeDisciplines, activeTransversals, groups: useGroups ? groups : [], useGroups, plenaryFirst: useGroups ? plenaryFirst : false })}
         disabled={!topic.trim() || activePersonas.length === 0}
         style={{ width: "100%", background: topic.trim() && activePersonas.length > 0 ? "#111827" : "#E5E7EB", color: topic.trim() && activePersonas.length > 0 ? "#fff" : "#9CA3AF", border: "none", borderRadius: 10, padding: "14px", fontSize: 15, fontWeight: 700, cursor: topic.trim() && activePersonas.length > 0 ? "pointer" : "not-allowed" }}>
         Ouvrir la table → ({activePersonas.length} persona{activePersonas.length > 1 ? "s" : ""}{useGroups && groups.length > 0 ? `, ${groups.length} grappes` : ""})
@@ -966,8 +986,14 @@ function DebateScreen({ table, onUpdate, onClose }) {
     setIsSynthesizing(false);
   };
   const [status, setStatus] = useState(table.status || "open");
-  const [sessionPhase, setSessionPhase] = useState(table.sessionPhase || (table.useGroups && table.groups?.length > 0 ? "groups" : "plenary"));
-  const [activeGroupId, setActiveGroupId] = useState(table.groups?.[0]?.id || "plenary");
+  const initialPhase = table.sessionPhase || (table.useGroups && table.groups?.length > 0
+    ? (table.plenaryFirst ? "plenary" : "groups")
+    : "plenary");
+  const initialGroup = table.plenaryFirst && table.groups?.length > 0
+    ? "plenary"
+    : (table.groups?.[0]?.id || "plenary");
+  const [sessionPhase, setSessionPhase] = useState(initialPhase);
+  const [activeGroupId, setActiveGroupId] = useState(initialGroup);
   const [globalSearch, setGlobalSearch] = useState(table.webSearchEnabled || false);
   const [disabledPersonas, setDisabledPersonas] = useState(new Set(table.disabledPersonas || []));
   const [audioEnabled, setAudioEnabled] = useState(false), [speakingMsgId, setSpeakingMsgId] = useState(null);
@@ -1208,6 +1234,17 @@ function DebateScreen({ table, onUpdate, onClose }) {
           ))}
         </div>
 
+        {/* Éclater en grappes — depuis plénière vers grappes */}
+        {sessionPhase === "plenary" && hasGroups && table.plenaryFirst && activeGroupId === "plenary" && (
+          <div style={{ marginBottom: 10, display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "#F5F3FF", border: "1px solid #DDD6FE", borderRadius: 10 }}>
+            <span style={{ fontSize: 13, color: "#7C3AED", flex: 1 }}>La table a débattu en plénière — prêt à éclater en grappes ?</span>
+            <button onClick={() => { setSessionPhase("groups"); setActiveGroupId(groups[0]?.id || "plenary"); }}
+              style={{ fontSize: 12, padding: "4px 14px", borderRadius: 16, border: "none", background: "#7C3AED", color: "#fff", fontWeight: 700, cursor: "pointer" }}>
+              Éclater en grappes →
+            </button>
+          </div>
+        )}
+
         {/* Plenary controls */}
         {sessionPhase === "plenary" && groups.length > 0 && (
           <div style={{ marginBottom: 12, padding: "8px 12px", background: "#F5F3FF", border: "1px solid #DDD6FE", borderRadius: 10 }}>
@@ -1234,7 +1271,11 @@ function DebateScreen({ table, onUpdate, onClose }) {
 
         {visibleMessages.length === 0 && (
           <div style={{ textAlign: "center", color: "#9CA3AF", fontSize: 13, padding: "40px 0" }}>
-            {hasGroups && activeGroupId !== "plenary" ? `Grappe "${currentGroup?.name}" prête.` : "La table est ouverte."}
+            {hasGroups && activeGroupId !== "plenary"
+              ? `Grappe "${currentGroup?.name}" prête.`
+              : table.plenaryFirst && hasGroups
+                ? "Plénière ouverte — posez le sujet à toute la table avant d'éclater en grappes."
+                : "La table est ouverte."}
             <br /><br />
             <button onClick={() => handleSend(hasGroups && activeGroupId !== "plenary" ? `Grappe ${currentGroup?.name} — chacun présente sa position.` : "Chacun présente sa position initiale sur le sujet.")}
               style={{ background: "#111827", color: "#fff", border: "none", borderRadius: 8, padding: "8px 16px", fontSize: 13, cursor: "pointer" }}>
@@ -1342,7 +1383,7 @@ function TableList({ tables, onOpen, onNew, onDelete, onArchive, onRename, searc
                       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, flexWrap: "wrap" }}>
                         <span style={{ fontSize: 11, fontWeight: 700, color: table.status === "synthesized" ? "#059669" : "#2563EB", background: table.status === "synthesized" ? "#ECFDF5" : "#EFF6FF", borderRadius: 4, padding: "1px 6px" }}>{table.status === "synthesized" ? "✅ Synthétisée" : "🟢 Ouverte"}</span>
                         <span style={{ fontSize: 11, color: "#9CA3AF" }}>{table.frameworkId === "artistique" ? "🎨 Artistique" : fw?.label}</span>
-                        {table.useGroups && table.groups?.length > 0 && <span style={{ fontSize: 11, color: "#7C3AED", background: "#F5F3FF", borderRadius: 4, padding: "1px 5px" }}>🗂️ {table.groups.length} grappes</span>}
+                        {table.useGroups && table.groups?.length > 0 && <span style={{ fontSize: 11, color: "#7C3AED", background: "#F5F3FF", borderRadius: 4, padding: "1px 5px" }}>{table.plenaryFirst ? "🏛️→🗂️" : "🗂️→🏛️"} {table.groups.length} grappes</span>}
                         {(table.humanParticipants?.length || 0) > 0 && <span style={{ fontSize: 11, color: "#059669", background: "#F0FDF4", borderRadius: 4, padding: "1px 5px" }}>👥 Mixte</span>}
                         {table.archived && <span style={{ fontSize: 11, color: "#9CA3AF", background: "#F3F4F6", borderRadius: 4, padding: "1px 5px" }}>📦 Archivée</span>}
                       </div>
