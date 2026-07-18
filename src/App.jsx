@@ -353,49 +353,323 @@ function ArtisticSetup({ activeDisciplines, setActiveDisciplines, activeTransver
   );
 }
 
-// ─── CUSTOM PERSONA BUILDER ───────────────────────────────────────────────────
-function CustomPersonaBuilder({ onAdd, existingDocs, onCancel }) {
-  const [mode, setMode] = useState("scratch");
-  const [name, setName] = useState(""), [emoji, setEmoji] = useState("🧑"), [role, setRole] = useState("");
-  const [promptMode, setPromptMode] = useState("auto"), [customPrompt, setCustomPrompt] = useState("");
-  const [selectedDoc, setSelectedDoc] = useState(null), [isGenerating, setIsGenerating] = useState(false);
+// ─── PERSONA PROFILE BUILDER (replaces CustomPersonaBuilder in V6) ────────────
+
+function PersonaProfileBuilder({ onAdd, existingDocs, onCancel }) {
+  const [step, setStep] = useState("sources"); // sources | review
+  const [name, setName] = useState("");
+  const [emoji, setEmoji] = useState("🧑");
+  const [role, setRole] = useState("");
+  const [isComposite, setIsComposite] = useState(false);
+  const [compositeNames, setCompositeNames] = useState("");
+
+  // Sources
+  const [cvDocs, setCvDocs] = useState([]);
+  const [notes, setNotes] = useState("");
+  const [linkedinText, setLinkedinText] = useState("");
+  const [consent, setConsent] = useState(false);
+  const [hasAudio] = useState(false); // placeholder phase 2
+
+  // Generated
+  const [generatedPrompt, setGeneratedPrompt] = useState("");
+  const [generatedProfile, setGeneratedProfile] = useState(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [editedPrompt, setEditedPrompt] = useState("");
+
+  const cvRef = useRef();
   const colors = ["#7C3AED","#059669","#DC2626","#D97706","#2563EB","#0891B2"];
   const [color] = useState(() => colors[Math.floor(Math.random() * colors.length)]);
-  const canAdd = name.trim() && role.trim() && (promptMode === "auto" || customPrompt.trim()) && (mode !== "doc" || selectedDoc);
-  const handleAdd = async () => {
+
+  const hasEnoughSources = cvDocs.length > 0 || notes.trim().length > 20 || linkedinText.trim().length > 20;
+  const needsConsent = false; // audio only for now
+  const canGenerate = (name.trim() || isComposite && compositeNames.trim()) && role.trim() && hasEnoughSources;
+
+  const handleCvFiles = async (files) => {
+    const r = await Promise.all(Array.from(files).map(fileToContext));
+    setCvDocs(prev => [...prev, ...r]);
+  };
+
+  const buildSourcesText = () => {
+    const parts = [];
+    if (notes.trim()) parts.push(`## Notes d'observation\n${notes.trim()}`);
+    if (linkedinText.trim()) parts.push(`## Profil LinkedIn\n${linkedinText.trim()}`);
+    return parts.join("\n\n");
+  };
+
+  const generatePersona = async () => {
     setIsGenerating(true);
-    let finalPrompt = customPrompt;
-    if (mode === "doc" && selectedDoc) {
-      finalPrompt = await callClaudeSimple("Tu génères des system prompts pour personas de débat IA. Réponds UNIQUEMENT avec le system prompt.",
-        buildUserContent(`Analyse ce document. Génère un system prompt pour un persona représentant la personne/entité décrite. Capture expertise, style, priorités. Nom : "${name || selectedDoc.name}". 4-5 phrases directives.`, [selectedDoc]));
-    } else if (promptMode === "auto") {
-      finalPrompt = await callClaudeSimple("Tu génères des system prompts pour personas de débat IA. Réponds UNIQUEMENT avec le system prompt.",
-        `Génère un system prompt pour "${name}" dont le rôle est "${role}". Capture style de pensée et communication. 3-4 phrases max.`);
+    const sourcesText = buildSourcesText();
+    const nameStr = isComposite ? `Persona composite basé sur : ${compositeNames}` : name;
+
+    const systemInstr = `Tu es expert en psychologie comportementale et facilitation. 
+Tu analyses des profils pour créer des personas de débat IA précis et utiles.
+Réponds UNIQUEMENT en JSON valide, sans markdown, sans commentaires.`;
+
+    const userPrompt = isComposite
+      ? `Crée un persona composite qui synthétise les profils suivants en un archétype cohérent.
+Noms/profils sources : ${compositeNames}
+Rôle dans les débats : ${role}
+${sourcesText}
+${cvDocs.length > 0 ? "Documents joints (CVs, notes)." : ""}
+
+Génère un JSON avec exactement ces champs :
+{
+  "system_prompt": "Instructions détaillées pour jouer ce persona en débat (5-6 phrases, à la 2ème personne)",
+  "thinking_style": "Description du style cognitif en 10 mots max",
+  "typical_priorities": ["priorité 1", "priorité 2", "priorité 3"],
+  "typical_objections": ["objection type 1", "objection type 2"],
+  "communication_style": "Description du style de communication en 15 mots max",
+  "suggested_emoji": "un seul emoji représentatif"
+}`
+      : `Analyse ce profil et crée un persona de débat IA.
+Nom : ${nameStr}
+Rôle dans les débats : ${role}
+${sourcesText}
+${cvDocs.length > 0 ? "Documents joints (CVs, notes, transcripts)." : ""}
+
+Génère un JSON avec exactement ces champs :
+{
+  "system_prompt": "Instructions détaillées pour jouer ce persona en débat (5-6 phrases, à la 2ème personne, capture l'essence de la personne)",
+  "thinking_style": "Description du style cognitif en 10 mots max",
+  "typical_priorities": ["priorité 1", "priorité 2", "priorité 3"],
+  "typical_objections": ["objection type 1", "objection type 2"],
+  "communication_style": "Description du style de communication en 15 mots max",
+  "suggested_emoji": "un seul emoji représentatif"
+}`;
+
+    try {
+      const userContent = cvDocs.length > 0
+        ? buildUserContent(userPrompt, cvDocs)
+        : userPrompt;
+
+      const raw = await callClaudeSimple(systemInstr, userContent);
+      const parsed = JSON.parse(raw.replace(/```json|```/g, "").trim());
+
+      setGeneratedProfile(parsed);
+      setGeneratedPrompt(parsed.system_prompt);
+      setEditedPrompt(parsed.system_prompt);
+      if (parsed.suggested_emoji && !emoji !== "🧑") setEmoji(parsed.suggested_emoji);
+      setStep("review");
+    } catch (err) {
+      console.error(err);
+      // Fallback: generate just a prompt
+      const fallback = await callClaudeSimple(
+        "Tu génères des system prompts pour personas de débat IA. Réponds UNIQUEMENT avec le system prompt, rien d'autre.",
+        `Persona : "${nameStr}", rôle : "${role}". ${sourcesText}`
+      );
+      setGeneratedPrompt(fallback);
+      setEditedPrompt(fallback);
+      setGeneratedProfile(null);
+      setStep("review");
     }
     setIsGenerating(false);
-    onAdd({ id: `custom_${Date.now()}`, name: name || selectedDoc?.name.replace(/\.[^.]+$/, "") || "Custom", emoji, role, color, bg: "#FAFAFA", border: "#E5E7EB", systemPrompt: finalPrompt, voice: { pitch: 1, rate: 1, voiceIndex: Math.floor(Math.random() * 6) }, isCustom: true });
   };
-  return (
-    <div style={{ border: "1.5px dashed #D1D5DB", borderRadius: 10, padding: 16, background: "#FAFAFA" }}>
-      <div style={{ fontSize: 13, fontWeight: 700, color: "#374151", marginBottom: 12 }}>➕ Persona IA custom</div>
-      <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
-        {[["scratch","✍️ Depuis zéro"],["doc","📄 Depuis un doc"],["modify","🔧 Prompt libre"]].map(([m, l]) => <button key={m} onClick={() => setMode(m)} style={{ fontSize: 11, padding: "4px 10px", borderRadius: 6, cursor: "pointer", background: mode === m ? "#111827" : "#F3F4F6", color: mode === m ? "#fff" : "#374151", border: "none" }}>{l}</button>)}
+
+  const handleAdd = () => {
+    const finalName = isComposite ? (name.trim() || `Composite — ${compositeNames.split(",")[0].trim()}`) : name.trim();
+    const persona = {
+      id: `profile_${Date.now()}`,
+      name: finalName,
+      emoji: generatedProfile?.suggested_emoji || emoji,
+      role,
+      color,
+      bg: "#FAFAFA",
+      border: "#E5E7EB",
+      systemPrompt: editedPrompt,
+      voice: { pitch: 1, rate: 1, voiceIndex: Math.floor(Math.random() * 6) },
+      isCustom: true,
+      isComposite,
+      profile: generatedProfile ? {
+        thinking_style: generatedProfile.thinking_style,
+        typical_priorities: generatedProfile.typical_priorities,
+        typical_objections: generatedProfile.typical_objections,
+        communication_style: generatedProfile.communication_style,
+      } : null,
+      sources: [
+        ...cvDocs.map(d => ({ type: "cv", filename: d.name })),
+        ...(notes.trim() ? [{ type: "notes" }] : []),
+        ...(linkedinText.trim() ? [{ type: "linkedin" }] : []),
+      ],
+      schema: "table-virtuelle-persona/v1",
+      consent,
+    };
+    onAdd(persona);
+  };
+
+  // ── STEP 1: Sources ──
+  if (step === "sources") return (
+    <div style={{ border: "1.5px solid #DDD6FE", borderRadius: 12, padding: 18, background: "#FDFCFF" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+        <span style={{ fontSize: 20 }}>🧠</span>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "#374151" }}>Persona depuis profil</div>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+          <button onClick={() => setIsComposite(false)} style={{ fontSize: 11, padding: "3px 10px", borderRadius: 6, border: "none", background: !isComposite ? "#111827" : "#F3F4F6", color: !isComposite ? "#fff" : "#374151", cursor: "pointer" }}>👤 Individuel</button>
+          <button onClick={() => setIsComposite(true)} style={{ fontSize: 11, padding: "3px 10px", borderRadius: 6, border: "none", background: isComposite ? "#111827" : "#F3F4F6", color: isComposite ? "#fff" : "#374151", cursor: "pointer" }}>👥 Composite</button>
+        </div>
       </div>
-      {mode === "doc" && <div style={{ marginBottom: 10 }}><div style={{ fontSize: 12, color: "#6B7280", marginBottom: 6 }}>Choisir un document :</div>{existingDocs.length === 0 ? <div style={{ fontSize: 12, color: "#9CA3AF", fontStyle: "italic" }}>Aucun document chargé.</div> : <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>{existingDocs.map((d, i) => <button key={i} onClick={() => setSelectedDoc(d)} style={{ fontSize: 12, padding: "4px 10px", borderRadius: 6, cursor: "pointer", background: selectedDoc === d ? "#111827" : "#F3F4F6", color: selectedDoc === d ? "#fff" : "#374151", border: "none" }}>{d.name}</button>)}</div>}</div>}
-      <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+
+      {/* Identity */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
         <input value={emoji} onChange={e => setEmoji(e.target.value)} style={{ width: 44, textAlign: "center", border: "1.5px solid #E5E7EB", borderRadius: 8, padding: "6px", fontSize: 18 }} />
-        <input value={name} onChange={e => setName(e.target.value)} placeholder="Nom du persona" style={{ flex: 1, border: "1.5px solid #E5E7EB", borderRadius: 8, padding: "6px 10px", fontSize: 13 }} />
+        <input value={name} onChange={e => setName(e.target.value)}
+          placeholder={isComposite ? "Nom du persona composite (optionnel)" : "Prénom Nom *"}
+          style={{ flex: 1, border: "1.5px solid #E5E7EB", borderRadius: 8, padding: "6px 10px", fontSize: 13 }} />
       </div>
-      <input value={role} onChange={e => setRole(e.target.value)} placeholder="Rôle..." style={{ width: "100%", border: "1.5px solid #E5E7EB", borderRadius: 8, padding: "6px 10px", fontSize: 13, marginBottom: 8 }} />
-      {mode !== "doc" && <div style={{ marginBottom: 10 }}><div style={{ display: "flex", gap: 6, marginBottom: 6 }}>{[["auto","✨ Auto"],["manual","✍️ Manuel"]].map(([m, l]) => <button key={m} onClick={() => setPromptMode(m)} style={{ fontSize: 11, padding: "4px 10px", borderRadius: 6, cursor: "pointer", background: promptMode === m ? "#374151" : "#F3F4F6", color: promptMode === m ? "#fff" : "#374151", border: "none" }}>{l}</button>)}</div>{promptMode === "manual" && <textarea value={customPrompt} onChange={e => setCustomPrompt(e.target.value)} placeholder="Décris comment ce persona raisonne..." rows={3} style={{ width: "100%", border: "1.5px solid #E5E7EB", borderRadius: 8, padding: "8px 10px", fontSize: 13, resize: "none" }} />}</div>}
+
+      {isComposite && (
+        <div style={{ marginBottom: 10 }}>
+          <input value={compositeNames} onChange={e => setCompositeNames(e.target.value)}
+            placeholder="Noms des personnes sources (ex: Marie, Jean, Sophie) *"
+            style={{ width: "100%", border: "1.5px solid #DDD6FE", borderRadius: 8, padding: "6px 10px", fontSize: 13, background: "#F5F3FF" }} />
+          <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 4 }}>Le persona synthétisera les profils de ces personnes en un archétype.</div>
+        </div>
+      )}
+
+      <input value={role} onChange={e => setRole(e.target.value)}
+        placeholder="Rôle dans les débats (ex: Directrice Artistique, Client type...) *"
+        style={{ width: "100%", border: "1.5px solid #E5E7EB", borderRadius: 8, padding: "6px 10px", fontSize: 13, marginBottom: 14 }} />
+
+      {/* CV / Documents */}
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: "#374151", marginBottom: 6 }}>📄 CV & documents</div>
+        {cvDocs.length > 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 6 }}>
+            {cvDocs.map((d, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 4, background: "#F3F4F6", border: "1px solid #E5E7EB", borderRadius: 6, padding: "2px 8px", fontSize: 11 }}>
+                <span>{d.type === "pdf" ? "📄" : d.type === "image" ? "🖼️" : "📝"}</span>
+                <span style={{ maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.name}</span>
+                <button onClick={() => setCvDocs(prev => prev.filter((_, j) => j !== i))} style={{ background: "none", border: "none", color: "#9CA3AF", cursor: "pointer", padding: 0 }}>×</button>
+              </div>
+            ))}
+          </div>
+        )}
+        <button onClick={() => cvRef.current.click()} style={{ width: "100%", border: "1.5px dashed #D1D5DB", borderRadius: 8, padding: "8px", background: "#FAFAFA", color: "#6B7280", fontSize: 12, cursor: "pointer" }}>
+          + CV, lettre de motivation, évaluation, compte-rendu…
+        </button>
+        <input ref={cvRef} type="file" multiple accept=".pdf,.txt,.md,.doc,.docx,.jpg,.jpeg,.png" style={{ display: "none" }} onChange={e => handleCvFiles(e.target.files)} />
+      </div>
+
+      {/* LinkedIn */}
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: "#374151", marginBottom: 6 }}>🔗 Profil LinkedIn <span style={{ fontWeight: 400, color: "#9CA3AF" }}>(copier-coller)</span></div>
+        <textarea value={linkedinText} onChange={e => setLinkedinText(e.target.value)}
+          placeholder="Collez ici le texte du profil LinkedIn (résumé, expériences, compétences)…"
+          rows={3} style={{ width: "100%", border: "1.5px solid #E5E7EB", borderRadius: 8, padding: "8px 10px", fontSize: 12, resize: "none", color: "#374151" }} />
+      </div>
+
+      {/* Notes */}
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: "#374151", marginBottom: 6 }}>✏️ Notes d'observation <span style={{ fontWeight: 400, color: "#9CA3AF" }}>(comportement, style, réunions…)</span></div>
+        <textarea value={notes} onChange={e => setNotes(e.target.value)}
+          placeholder={isComposite
+            ? "Décrivez les traits communs, l'archétype visé, ce que le composite doit incarner…"
+            : "Comment cette personne se comporte en réunion ? Ses positions récurrentes, son style de communication, ses priorités, ses angles d'attaque habituels…"}
+          rows={4} style={{ width: "100%", border: "1.5px solid #E5E7EB", borderRadius: 8, padding: "8px 10px", fontSize: 12, resize: "none", color: "#374151" }} />
+      </div>
+
+      {/* Audio placeholder */}
+      <div style={{ marginBottom: 14, padding: "8px 12px", background: "#F3F4F6", borderRadius: 8, display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ fontSize: 16 }}>🎙</span>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: "#9CA3AF" }}>Audio / Enregistrements</div>
+          <div style={{ fontSize: 11, color: "#9CA3AF" }}>Discours, réunions, interviews — disponible prochainement</div>
+        </div>
+        <span style={{ fontSize: 11, background: "#E5E7EB", color: "#9CA3AF", borderRadius: 4, padding: "2px 6px" }}>Bientôt</span>
+      </div>
+
+      {/* Consent */}
+      {(notes.trim() || cvDocs.length > 0) && (
+        <div style={{ marginBottom: 14, display: "flex", alignItems: "flex-start", gap: 8 }}>
+          <input type="checkbox" id="consent" checked={consent} onChange={e => setConsent(e.target.checked)}
+            style={{ marginTop: 2, cursor: "pointer", accentColor: "#7C3AED" }} />
+          <label htmlFor="consent" style={{ fontSize: 12, color: "#6B7280", cursor: "pointer", lineHeight: 1.5 }}>
+            Je confirme avoir obtenu le consentement de la personne (ou de ses ayants droit) pour créer un persona à partir de ces informations, ou que ces informations sont publiques.
+          </label>
+        </div>
+      )}
+
+      {!hasEnoughSources && (
+        <div style={{ fontSize: 11, color: "#9CA3AF", marginBottom: 10, fontStyle: "italic" }}>
+          Ajoutez au moins une source : CV, profil LinkedIn, ou notes d'observation.
+        </div>
+      )}
+
       <div style={{ display: "flex", gap: 8 }}>
-        <button onClick={onCancel} style={{ flex: 1, background: "#F3F4F6", border: "none", borderRadius: 8, padding: "8px", fontSize: 13, cursor: "pointer", color: "#374151" }}>Annuler</button>
-        <button onClick={handleAdd} disabled={!canAdd || isGenerating} style={{ flex: 2, background: canAdd && !isGenerating ? "#111827" : "#E5E7EB", color: canAdd && !isGenerating ? "#fff" : "#9CA3AF", border: "none", borderRadius: 8, padding: "8px", fontSize: 13, fontWeight: 700, cursor: canAdd && !isGenerating ? "pointer" : "not-allowed" }}>{isGenerating ? "Génération…" : "Ajouter"}</button>
+        <button onClick={onCancel} style={{ flex: 1, background: "#F3F4F6", border: "none", borderRadius: 8, padding: "9px", fontSize: 13, cursor: "pointer", color: "#374151" }}>Annuler</button>
+        <button onClick={generatePersona} disabled={!canGenerate || isGenerating}
+          style={{ flex: 3, background: canGenerate && !isGenerating ? "#7C3AED" : "#E5E7EB", color: canGenerate && !isGenerating ? "#fff" : "#9CA3AF", border: "none", borderRadius: 8, padding: "9px", fontSize: 13, fontWeight: 700, cursor: canGenerate && !isGenerating ? "pointer" : "not-allowed" }}>
+          {isGenerating ? "✨ Génération du profil…" : "✨ Générer le persona →"}
+        </button>
+      </div>
+    </div>
+  );
+
+  // ── STEP 2: Review & edit ──
+  return (
+    <div style={{ border: "1.5px solid #A7F3D0", borderRadius: 12, padding: 18, background: "#F0FDF4" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+        <span style={{ fontSize: 20 }}>{generatedProfile?.suggested_emoji || emoji}</span>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "#065F46" }}>{isComposite ? (name || `Composite — ${compositeNames.split(",")[0].trim()}`) : name}</div>
+          <div style={{ fontSize: 12, color: "#059669" }}>{role}</div>
+        </div>
+        <button onClick={() => setStep("sources")} style={{ marginLeft: "auto", fontSize: 11, background: "#D1FAE5", border: "none", borderRadius: 6, padding: "3px 10px", color: "#065F46", cursor: "pointer" }}>← Modifier les sources</button>
+      </div>
+
+      {/* Cognitive profile summary */}
+      {generatedProfile && (
+        <div style={{ marginBottom: 14, display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <div style={{ flex: 1, minWidth: 140, background: "#fff", border: "1px solid #A7F3D0", borderRadius: 8, padding: "8px 10px" }}>
+              <div style={{ fontSize: 10, color: "#9CA3AF", fontWeight: 700, marginBottom: 4 }}>STYLE COGNITIF</div>
+              <div style={{ fontSize: 12, color: "#374151" }}>{generatedProfile.thinking_style}</div>
+            </div>
+            <div style={{ flex: 1, minWidth: 140, background: "#fff", border: "1px solid #A7F3D0", borderRadius: 8, padding: "8px 10px" }}>
+              <div style={{ fontSize: 10, color: "#9CA3AF", fontWeight: 700, marginBottom: 4 }}>COMMUNICATION</div>
+              <div style={{ fontSize: 12, color: "#374151" }}>{generatedProfile.communication_style}</div>
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 6 }}>
+            <div style={{ flex: 1, background: "#fff", border: "1px solid #A7F3D0", borderRadius: 8, padding: "8px 10px" }}>
+              <div style={{ fontSize: 10, color: "#9CA3AF", fontWeight: 700, marginBottom: 4 }}>PRIORITÉS</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>{generatedProfile.typical_priorities?.map((p, i) => <span key={i} style={{ fontSize: 11, background: "#ECFDF5", color: "#059669", borderRadius: 4, padding: "1px 6px" }}>{p}</span>)}</div>
+            </div>
+            <div style={{ flex: 1, background: "#fff", border: "1px solid #A7F3D0", borderRadius: 8, padding: "8px 10px" }}>
+              <div style={{ fontSize: 10, color: "#9CA3AF", fontWeight: 700, marginBottom: 4 }}>OBJECTIONS TYPES</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>{generatedProfile.typical_objections?.map((o, i) => <span key={i} style={{ fontSize: 11, background: "#FEF2F2", color: "#DC2626", borderRadius: 4, padding: "1px 6px" }}>{o}</span>)}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Editable system prompt */}
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: "#374151", marginBottom: 6 }}>
+          System prompt <span style={{ fontWeight: 400, color: "#9CA3AF" }}>(modifiable)</span>
+        </div>
+        <textarea value={editedPrompt} onChange={e => setEditedPrompt(e.target.value)}
+          rows={6} style={{ width: "100%", border: "1.5px solid #A7F3D0", borderRadius: 8, padding: "10px 12px", fontSize: 13, resize: "vertical", lineHeight: 1.6, color: "#1F2937", background: "#fff" }} />
+      </div>
+
+      {/* Sources summary */}
+      <div style={{ marginBottom: 14, display: "flex", gap: 6, flexWrap: "wrap" }}>
+        {cvDocs.map((d, i) => <span key={i} style={{ fontSize: 11, background: "#EFF6FF", color: "#2563EB", borderRadius: 4, padding: "1px 6px" }}>📄 {d.name}</span>)}
+        {linkedinText.trim() && <span style={{ fontSize: 11, background: "#EFF6FF", color: "#2563EB", borderRadius: 4, padding: "1px 6px" }}>🔗 LinkedIn</span>}
+        {notes.trim() && <span style={{ fontSize: 11, background: "#EFF6FF", color: "#2563EB", borderRadius: 4, padding: "1px 6px" }}>✏️ Notes</span>}
+        {isComposite && <span style={{ fontSize: 11, background: "#F5F3FF", color: "#7C3AED", borderRadius: 4, padding: "1px 6px" }}>👥 Composite</span>}
+        {consent && <span style={{ fontSize: 11, background: "#ECFDF5", color: "#059669", borderRadius: 4, padding: "1px 6px" }}>✓ Consentement</span>}
+      </div>
+
+      <div style={{ display: "flex", gap: 8 }}>
+        <button onClick={onCancel} style={{ flex: 1, background: "#F3F4F6", border: "none", borderRadius: 8, padding: "9px", fontSize: 13, cursor: "pointer", color: "#374151" }}>Annuler</button>
+        <button onClick={handleAdd} disabled={!editedPrompt.trim()}
+          style={{ flex: 3, background: editedPrompt.trim() ? "#059669" : "#E5E7EB", color: editedPrompt.trim() ? "#fff" : "#9CA3AF", border: "none", borderRadius: 8, padding: "9px", fontSize: 13, fontWeight: 700, cursor: editedPrompt.trim() ? "pointer" : "not-allowed" }}>
+          ✓ Ajouter ce persona à la table
+        </button>
       </div>
     </div>
   );
 }
-
 // ─── SETUP SCREEN ─────────────────────────────────────────────────────────────
 function SetupScreen({ onStart }) {
   const [topic, setTopic] = useState("");
@@ -555,8 +829,8 @@ function SetupScreen({ onStart }) {
 
       <div style={{ marginBottom: 24 }}>
         {!showCustomBuilder
-          ? <button onClick={() => setShowCustomBuilder(true)} style={{ width: "100%", border: "1.5px dashed #D1D5DB", borderRadius: 10, padding: "10px", background: "#FAFAFA", color: "#6B7280", fontSize: 13, cursor: "pointer" }}>➕ Ajouter un persona IA custom</button>
-          : <CustomPersonaBuilder existingDocs={docs} onAdd={p => { setCustomPersonas(prev => [...prev, p]); setShowCustomBuilder(false); }} onCancel={() => setShowCustomBuilder(false)} />}
+          ? <button onClick={() => setShowCustomBuilder(true)} style={{ width: "100%", border: "1.5px dashed #D1D5DB", borderRadius: 10, padding: "10px", background: "#FAFAFA", color: "#6B7280", fontSize: 13, cursor: "pointer" }}>🧠 Créer un persona depuis profil</button>
+          : <PersonaProfileBuilder existingDocs={docs} onAdd={p => { setCustomPersonas(prev => [...prev, p]); setShowCustomBuilder(false); }} onCancel={() => setShowCustomBuilder(false)} />}
       </div>
 
       <button onClick={() => onStart({ topic, frameworkId, customPersonas, humanParticipants, docs, webSearchEnabled, disabledPersonas: [...disabledPersonas], activeDisciplines, activeTransversals, groups: useGroups ? groups : [], useGroups })}
