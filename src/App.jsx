@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from "react";
-import { BetaGate, useBetaAccess } from "./BetaGate";
 
 const ARTISTIC_DISCIPLINES = [
   { id: "mise_en_scene", name: "Mise en scène", emoji: "🎭", role: "Vision scénique", color: "#7C3AED", bg: "#F5F3FF", border: "#DDD6FE", systemPrompt: `Tu es le Metteur en scène. Vision scénique, direction des performeurs. Style : visionnaire, exigeant. 3-4 phrases max.` },
@@ -82,7 +81,7 @@ async function setOnboardingDone() { try { await window.storage.set(ONBOARDING_K
 
 // ─── API ──────────────────────────────────────────────────────────────────────
 async function streamAPI(body, onChunk) {
-  const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json", "x-beta-password": localStorage.getItem("tv_beta_access") || "" }, body: JSON.stringify({ ...body, stream: true }) });
+  const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...body, stream: true }) });
   if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e?.error?.message || `API ${r.status}`); }
   const reader = r.body.getReader(), dec = new TextDecoder(); let buf = "";
   while (true) {
@@ -102,7 +101,7 @@ async function streamPersonaCall(systemPrompt, messages, webSearch, onChunk, onS
   const callAPI = async (msgs) => {
     const body = { model: "claude-sonnet-4-6", max_tokens: 1000, stream: true, system: systemPrompt, messages: msgs };
     if (tools.length) body.tools = tools;
-    const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json", "x-beta-password": localStorage.getItem("tv_beta_access") || "" }, body: JSON.stringify(body) });
+    const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e?.error?.message || `API ${r.status}`); }
     return r;
   };
@@ -155,7 +154,7 @@ async function streamPersonaCall(systemPrompt, messages, webSearch, onChunk, onS
 }
 
 async function callClaudeSimple(system, userContent) {
-  const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json", "x-beta-password": localStorage.getItem("tv_beta_access") || "" },
+  const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1000, system, messages: [{ role: "user", content: userContent }] }) });
   const d = await r.json();
   return d.content?.map(b => b.text || "").join("") || "";
@@ -845,7 +844,18 @@ function SetupScreen({ onStart }) {
 
 // ─── MESSAGE BUBBLE ───────────────────────────────────────────────────────────
 function MessageBubble({ msg, aiPersonas, humanParticipants, groups, onChallenge, onSpeak, isSpeaking }) {
+  const isUser = msg.role === "user";
   const isHuman = msg.role === "human", isSecretary = msg.role === "secretary";
+
+  // ── Bulle "Vous" — animateur anonyme, alignée à droite ──
+  if (isUser) return (
+    <div style={{ marginBottom: 16, display: "flex", flexDirection: "column", alignItems: "flex-end", animation: "fadeIn 0.25s ease" }}>
+      <div style={{ fontSize: 11, color: "#9CA3AF", marginBottom: 4 }}>Vous</div>
+      <div style={{ background: "#111827", color: "#fff", borderRadius: 12, borderBottomRightRadius: 4, padding: "10px 14px", fontSize: 14, lineHeight: 1.65, maxWidth: "80%", whiteSpace: "pre-wrap", fontFamily: "system-ui" }}>
+        {msg.text}
+      </div>
+    </div>
+  );
   const isGroupSynthesis = msg.role === "group_synthesis";
   const isPlenaryStart = msg.role === "plenary_start";
   const humanSpeaker = isHuman ? humanParticipants.find(h => h.id === msg.speakerId) : null;
@@ -975,6 +985,7 @@ function DebateScreen({ table, onUpdate, onClose }) {
   const buildContext = (msgs, gid) => {
     const relevant = (gid && gid !== "plenary") ? msgs.filter(m => m.groupId === gid || m.role === "plenary_start") : msgs;
     const history = relevant.map(m => {
+      if (m.role === "user") return `[Animateur] : ${m.text}`;
       if (m.role === "human") { const h = humanParticipants.find(x => x.id === m.speakerId); return `[${h?.name || "Participant"} — Humain] : ${m.text}`; }
       if (m.role === "secretary") return `[Secrétaire] : ${m.text}`;
       if (m.role === "group_synthesis") return `[Porte-parole ${m.groupName}] : ${m.text}`;
@@ -1333,7 +1344,6 @@ export default function App() {
   const [loaded, setLoaded] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const { granted, checked, grant } = useBetaAccess();
 
   useEffect(() => {
     Promise.all([loadTables(), getOnboardingDone()]).then(([t, done]) => { setTables(t); setLoaded(true); if (!done) setShowOnboarding(true); });
@@ -1357,10 +1367,6 @@ export default function App() {
   const handleRename = (id, newTopic) => { if (!newTopic.trim()) return; const u = tables.map(t => t.id === id ? { ...t, topic: newTopic.trim(), updatedAt: Date.now() } : t); setTables(u); saveTables(u); };
   const handleCloseOnboarding = async () => { await setOnboardingDone(); setShowOnboarding(false); };
 
-  // [BETA-GATE] — retirer quand on passe à Clerk
-  if (!checked) return null;
-  if (!granted) return <BetaGate onAccess={grant} />;
-  // [/BETA-GATE]
   if (!loaded) return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", color: "#9CA3AF" }}>Chargement…</div>;
 
   return (
