@@ -1,4 +1,6 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+
+// ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
 const ARTISTIC_DISCIPLINES = [
   { id: "mise_en_scene", name: "Mise en scène", emoji: "🎭", role: "Vision scénique", color: "#7C3AED", bg: "#F5F3FF", border: "#DDD6FE", systemPrompt: `Tu es le Metteur en scène. Vision scénique, direction des performeurs. Style : visionnaire, exigeant. 3-4 phrases max.` },
@@ -10,7 +12,7 @@ const ARTISTIC_DISCIPLINES = [
 ];
 const ARTISTIC_TRANSVERSAL = [
   { id: "production_art", name: "Production", emoji: "🎬", role: "Budget & planning", color: "#B45309", bg: "#FFFBEB", border: "#FDE68A", systemPrompt: `Tu es le Producteur artistique. Budget, planning, faisabilité. Style : pragmatique. 3-4 phrases max.` },
-  { id: "regie", name: "Régie", emoji: "🔧", role: "Technique & logistique", color: "#1D4ED8", bg: "#EFF6FF", border: "#BFDBFE", systemPrompt: `Tu es le Régisseur général. Contraintes techniques, logistiques. Style : direct, terre-à-terre. 3-4 phrases max.` },
+  { id: "regie", name: "Régie", emoji: "🔧", role: "Technique & logistique", color: "#1D4ED8", bg: "#EFF6FF", border: "#BFDBFE", systemPrompt: `Tu es le Régisseur général. Contraintes techniques, logistiques. Style : direct. 3-4 phrases max.` },
   { id: "public_art", name: "Le Public", emoji: "👥", role: "Expérience & réception", color: "#DC2626", bg: "#FEF2F2", border: "#FECACA", systemPrompt: `Tu es la voix du Public. Expérience vécue, réception. Style : humain, direct. 3-4 phrases max.` },
   { id: "financeur", name: "Financeur/Partenaire", emoji: "🏛️", role: "Viabilité & soutien", color: "#374151", bg: "#F9FAFB", border: "#E5E7EB", systemPrompt: `Tu es le Financeur institutionnel. Subventions, mécénat, viabilité. Style : institutionnel. 3-4 phrases max.` },
   { id: "communication_art", name: "Communication", emoji: "📢", role: "Médiation & diffusion", color: "#059669", bg: "#ECFDF5", border: "#A7F3D0", systemPrompt: `Tu es le Responsable communication. Médiation culturelle, promotion. Style : orienté publics. 3-4 phrases max.` },
@@ -23,9 +25,8 @@ const ARTISTIC_PRESETS_SYSTEM = [
   { id: "installation", name: "Installation visuelle", emoji: "🖼️", disciplines: ["scenographie", "video_numerique"], transversals: ["production_art", "regie", "public_art", "financeur"] },
   { id: "spectacle_total", name: "Spectacle total", emoji: "✨", disciplines: ["mise_en_scene", "choregraphie", "musique", "dramaturgie", "scenographie", "video_numerique"], transversals: ["production_art", "regie", "public_art", "financeur", "communication_art"] },
 ];
-
 const FRAMEWORKS = {
-  sixhats: { id: "sixhats", label: "Six Chapeaux de Bono", description: "Six angles de pensée pour explorer toutes les facettes d'une décision.", personas: [
+  sixhats: { id: "sixhats", label: "Six Chapeaux de Bono", emoji: "🎩", description: "Six angles de pensée.", personas: [
     { id: "blanc", name: "Chapeau Blanc", emoji: "🤍", color: "#6B7280", bg: "#F9FAFB", border: "#E5E7EB", role: "Faits & données", voice: { pitch: 1, rate: 0.95, voiceIndex: 0 }, systemPrompt: `Tu es le Chapeau Blanc. Faits, chiffres, données vérifiables. Style : neutre, factuel. 3-4 phrases max.` },
     { id: "rouge", name: "Chapeau Rouge", emoji: "❤️", color: "#DC2626", bg: "#FEF2F2", border: "#FECACA", role: "Émotions & intuitions", voice: { pitch: 1.2, rate: 1.05, voiceIndex: 1 }, systemPrompt: `Tu es le Chapeau Rouge. Émotions, intuition, ressenti. Style : direct, humain. 3-4 phrases max.` },
     { id: "noir", name: "Chapeau Noir", emoji: "🖤", color: "#111827", bg: "#F3F4F6", border: "#D1D5DB", role: "Risques & critique", voice: { pitch: 0.85, rate: 0.9, voiceIndex: 2 }, systemPrompt: `Tu es le Chapeau Noir. Risques, faiblesses. Style : sérieux, précis. 3-4 phrases max.` },
@@ -33,7 +34,7 @@ const FRAMEWORKS = {
     { id: "vert", name: "Chapeau Vert", emoji: "💚", color: "#059669", bg: "#ECFDF5", border: "#A7F3D0", role: "Créativité & alternatives", voice: { pitch: 1.1, rate: 1.0, voiceIndex: 4 }, systemPrompt: `Tu es le Chapeau Vert. Idées nouvelles, alternatives. Style : imaginatif. 3-4 phrases max.` },
     { id: "bleu", name: "Chapeau Bleu", emoji: "💙", color: "#2563EB", bg: "#EFF6FF", border: "#BFDBFE", role: "Synthèse & étapes", voice: { pitch: 0.95, rate: 0.92, voiceIndex: 5 }, systemPrompt: `Tu es le Chapeau Bleu. Synthèse, tensions clés, prochaines étapes. Style : calme, structuré. 4-5 phrases + 2 actions.` },
   ]},
-  boardroom: { id: "boardroom", label: "Conseil d'Administration", description: "Votre décision passée au crible par les fonctions clés d'une entreprise.", personas: [
+  boardroom: { id: "boardroom", label: "Conseil d'Administration", emoji: "🏛️", description: "Les fonctions clés d'une entreprise.", personas: [
     { id: "ceo", name: "CEO", emoji: "👔", color: "#7C3AED", bg: "#F5F3FF", border: "#DDD6FE", role: "Vision & stratégie", voice: { pitch: 0.9, rate: 0.95, voiceIndex: 0 }, systemPrompt: `Tu es le CEO. Vision long terme, stratégie. Style : inspirant, assertif. 3-4 phrases.` },
     { id: "cfo", name: "CFO", emoji: "💰", color: "#065F46", bg: "#ECFDF5", border: "#A7F3D0", role: "Finances & ROI", voice: { pitch: 0.85, rate: 0.9, voiceIndex: 1 }, systemPrompt: `Tu es le CFO. Coûts, ROI, risques financiers. Style : chiffré, prudent. 3-4 phrases.` },
     { id: "cmo", name: "CMO", emoji: "📣", color: "#B45309", bg: "#FFFBEB", border: "#FDE68A", role: "Marché & clients", voice: { pitch: 1.15, rate: 1.05, voiceIndex: 2 }, systemPrompt: `Tu es le CMO. Marché, clients, positionnement. Style : orienté client, énergique. 3-4 phrases.` },
@@ -41,18 +42,16 @@ const FRAMEWORKS = {
     { id: "client", name: "Le Client", emoji: "🙋", color: "#DC2626", bg: "#FEF2F2", border: "#FECACA", role: "Voix utilisateur", voice: { pitch: 1.2, rate: 1.0, voiceIndex: 4 }, systemPrompt: `Tu es un client fictif. Expérience réelle, frustrations. Style : humain, direct. 3-4 phrases.` },
     { id: "chairman", name: "Président", emoji: "🏛️", color: "#374151", bg: "#F9FAFB", border: "#E5E7EB", role: "Synthèse & décision", voice: { pitch: 0.8, rate: 0.88, voiceIndex: 5 }, systemPrompt: `Tu es le Président du CA. Synthèse et recommandation avec 2 prochaines étapes. Style : autorité calme. 4-5 phrases.` },
   ]},
-  premortem: { id: "premortem", label: "Pré-mortem", description: "Imaginez que le projet a échoué. Pourquoi ? Comment l'éviter ?", personas: [
+  premortem: { id: "premortem", label: "Pré-mortem", emoji: "🔮", description: "Le projet a échoué. Pourquoi ?", personas: [
     { id: "pessimiste", name: "Le Pessimiste", emoji: "😟", color: "#7F1D1D", bg: "#FEF2F2", border: "#FECACA", role: "Ce qui va échouer", voice: { pitch: 0.85, rate: 0.88, voiceIndex: 0 }, systemPrompt: `Tu es Le Pessimiste. Le projet a échoué. Raisons principales. Style : rigoureux. 3-4 phrases.` },
     { id: "realiste", name: "Le Réaliste", emoji: "🎯", color: "#374151", bg: "#F9FAFB", border: "#E5E7EB", role: "Ce qui était prévisible", voice: { pitch: 1.0, rate: 0.95, voiceIndex: 1 }, systemPrompt: `Tu es Le Réaliste. Ce qui était prévisible. Style : analytique. 3-4 phrases.` },
     { id: "historien", name: "L'Historien", emoji: "📚", color: "#92400E", bg: "#FFFBEB", border: "#FDE68A", role: "Leçons du passé", voice: { pitch: 0.9, rate: 0.9, voiceIndex: 2 }, systemPrompt: `Tu es L'Historien. Précédents similaires. Style : référencé, pédagogique. 3-4 phrases.` },
     { id: "coach", name: "Le Coach", emoji: "💪", color: "#059669", bg: "#ECFDF5", border: "#A7F3D0", role: "Comment éviter l'échec", voice: { pitch: 1.1, rate: 1.05, voiceIndex: 3 }, systemPrompt: `Tu es Le Coach. Actions concrètes pour éviter l'échec. Style : constructif. 3-4 phrases + 3 actions.` },
   ]},
-  artistique: { id: "artistique", label: "Projet Artistique", description: "Direction artistique, disciplines créatives et contraintes de production.", isArtistic: true, personas: [] },
-  libre: { id: "libre", label: "Table libre", description: "Composez votre propre table avec des personas entièrement personnalisés.", personas: [] },
+  artistique: { id: "artistique", label: "Projet Artistique", emoji: "🎨", description: "Direction artistique et production.", isArtistic: true, personas: [] },
+  libre: { id: "libre", label: "Table libre", emoji: "🪑", description: "Composez votre propre table.", personas: [] },
 };
-
 const SECRETARY_PROMPT = `Tu es le Secrétaire de Séance. Produis une synthèse structurée :
-
 ## Points de consensus
 ## Tensions non résolues
 ## Insights clés (avec attribution [Humain/IA])
@@ -62,11 +61,11 @@ const SECRETARY_PROMPT = `Tu es le Secrétaire de Séance. Produis une synthèse
 - [ ] Moyen terme (1-4 semaines) : ...
 - [ ] Long terme (> 1 mois) : ...
 ## Questions encore ouvertes`;
-
 const GROUP_COLORS = ["#7C3AED","#059669","#DC2626","#D97706","#2563EB","#0891B2","#B45309","#374151"];
 const HUMAN_COLORS = ["#7C3AED","#059669","#DC2626","#D97706","#2563EB","#0891B2","#B45309","#374151"];
 const HUMAN_EMOJIS = ["👤","👩","👨","🧑","👩‍💼","👨‍💼","🧑‍💼","👩‍🎨","👨‍🎨"];
 const FEEDBACK_EMAIL = "feedback@table-virtuelle.app";
+const BETA_HEADER = () => ({ "x-beta-password": localStorage.getItem("tv_beta_access") || "" });
 
 // ─── STORAGE ──────────────────────────────────────────────────────────────────
 const STORAGE_KEY = "tables_v6";
@@ -79,9 +78,20 @@ async function saveUserPresets(p) { try { await window.storage.set(PRESETS_KEY, 
 async function getOnboardingDone() { try { const r = await window.storage.get(ONBOARDING_KEY); return !!r; } catch { return false; } }
 async function setOnboardingDone() { try { await window.storage.set(ONBOARDING_KEY, "1"); } catch {} }
 
+// ─── RESPONSIVE HOOK ──────────────────────────────────────────────────────────
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+  return isMobile;
+}
+
 // ─── API ──────────────────────────────────────────────────────────────────────
 async function streamAPI(body, onChunk, signal) {
-  const r = await fetch("/api/chat", { method: "POST", signal, headers: { "Content-Type": "application/json", "x-beta-password": localStorage.getItem("tv_beta_access") || "" }, body: JSON.stringify({ ...body, stream: true }) });
+  const r = await fetch("/api/chat", { method: "POST", signal, headers: { "Content-Type": "application/json", ...BETA_HEADER() }, body: JSON.stringify({ ...body, stream: true }) });
   if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e?.error?.message || `API ${r.status}`); }
   const reader = r.body.getReader(), dec = new TextDecoder(); let buf = "";
   try {
@@ -95,10 +105,7 @@ async function streamAPI(body, onChunk, signal) {
         try { const ev = JSON.parse(d); if (ev.type === "content_block_delta" && ev.delta?.text) onChunk(ev.delta.text); } catch {}
       }
     }
-  } catch (err) {
-    if (err.name === "AbortError") return; // arrêt propre
-    throw err;
-  }
+  } catch (err) { if (err.name !== "AbortError") throw err; }
 }
 
 async function streamPersonaCall(systemPrompt, messages, webSearch, onChunk, onSearchStart, onSearchEnd, signal) {
@@ -106,7 +113,7 @@ async function streamPersonaCall(systemPrompt, messages, webSearch, onChunk, onS
   const callAPI = async (msgs) => {
     const body = { model: "claude-sonnet-4-6", max_tokens: 1000, stream: true, system: systemPrompt, messages: msgs };
     if (tools.length) body.tools = tools;
-    const r = await fetch("/api/chat", { method: "POST", signal, headers: { "Content-Type": "application/json", "x-beta-password": localStorage.getItem("tv_beta_access") || "" }, body: JSON.stringify(body) });
+    const r = await fetch("/api/chat", { method: "POST", signal, headers: { "Content-Type": "application/json", ...BETA_HEADER() }, body: JSON.stringify(body) });
     if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e?.error?.message || `API ${r.status}`); }
     return r;
   };
@@ -116,34 +123,33 @@ async function streamPersonaCall(systemPrompt, messages, webSearch, onChunk, onS
     const response = await callAPI(currentMessages);
     const reader = response.body.getReader(), dec = new TextDecoder();
     let buf = "", currentTool = null, toolBuf = "", blocks = [], stopReason = null;
-    while (true) {
-      const { done, value } = await reader.read(); if (done) break;
-      buf += dec.decode(value, { stream: true });
-      const lines = buf.split("\n"); buf = lines.pop();
-      for (const line of lines) {
-        if (!line.startsWith("data: ")) continue;
-        const d = line.slice(6).trim(); if (d === "[DONE]") continue;
-        try {
-          const ev = JSON.parse(d);
-          if (ev.type === "message_delta" && ev.delta?.stop_reason) stopReason = ev.delta.stop_reason;
-          if (ev.type === "content_block_start" && ev.content_block?.type === "text") blocks.push({ type: "text", text: "" });
-          if (ev.type === "content_block_delta" && ev.delta?.type === "text_delta") {
-            const t = ev.delta.text; finalText += t; onChunk(t);
-            if (blocks.length > 0) { const last = blocks[blocks.length - 1]; if (last.type === "text") last.text += t; }
-          }
-          if (ev.type === "content_block_start" && ev.content_block?.type === "tool_use") {
-            currentTool = { type: "tool_use", id: ev.content_block.id, name: ev.content_block.name, input: {} };
-            toolBuf = ""; blocks.push(currentTool);
-            if (ev.content_block.name === "web_search") onSearchStart();
-          }
-          if (ev.type === "content_block_delta" && ev.delta?.type === "input_json_delta") toolBuf += ev.delta.partial_json;
-          if (ev.type === "content_block_stop" && currentTool) {
-            try { currentTool.input = JSON.parse(toolBuf); } catch {}
-            toolBuf = ""; currentTool = null;
-          }
-        } catch {}
+    try {
+      while (true) {
+        const { done, value } = await reader.read(); if (done) break;
+        buf += dec.decode(value, { stream: true });
+        const lines = buf.split("\n"); buf = lines.pop();
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const d = line.slice(6).trim(); if (d === "[DONE]") continue;
+          try {
+            const ev = JSON.parse(d);
+            if (ev.type === "message_delta" && ev.delta?.stop_reason) stopReason = ev.delta.stop_reason;
+            if (ev.type === "content_block_start" && ev.content_block?.type === "text") blocks.push({ type: "text", text: "" });
+            if (ev.type === "content_block_delta" && ev.delta?.type === "text_delta") {
+              const t = ev.delta.text; finalText += t; onChunk(t);
+              if (blocks.length > 0) { const last = blocks[blocks.length - 1]; if (last.type === "text") last.text += t; }
+            }
+            if (ev.type === "content_block_start" && ev.content_block?.type === "tool_use") {
+              currentTool = { type: "tool_use", id: ev.content_block.id, name: ev.content_block.name, input: {} };
+              toolBuf = ""; blocks.push(currentTool);
+              if (ev.content_block.name === "web_search") onSearchStart();
+            }
+            if (ev.type === "content_block_delta" && ev.delta?.type === "input_json_delta") toolBuf += ev.delta.partial_json;
+            if (ev.type === "content_block_stop" && currentTool) { try { currentTool.input = JSON.parse(toolBuf); } catch {} toolBuf = ""; currentTool = null; }
+          } catch {}
+        }
       }
-    }
+    } catch (err) { if (err.name === "AbortError") return finalText; throw err; }
     if (stopReason === "tool_use" && blocks.some(b => b.type === "tool_use")) {
       const results = [];
       for (const b of blocks.filter(x => x.type === "tool_use")) {
@@ -159,7 +165,7 @@ async function streamPersonaCall(systemPrompt, messages, webSearch, onChunk, onS
 }
 
 async function callClaudeSimple(system, userContent) {
-  const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json", "x-beta-password": localStorage.getItem("tv_beta_access") || "" },
+  const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json", ...BETA_HEADER() },
     body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1000, system, messages: [{ role: "user", content: userContent }] }) });
   const d = await r.json();
   return d.content?.map(b => b.text || "").join("") || "";
@@ -179,10 +185,7 @@ function buildDocBlock(doc) {
   if (doc.type === "pdf") return { type: "document", source: { type: "base64", media_type: "application/pdf", data: doc.base64 } };
   return { type: "text", text: `[Document: ${doc.name}]\n${doc.content}` };
 }
-function buildUserContent(text, docs = []) {
-  if (!docs.length) return text;
-  return [...docs.map(buildDocBlock), { type: "text", text }];
-}
+function buildUserContent(text, docs = []) { if (!docs.length) return text; return [...docs.map(buildDocBlock), { type: "text", text }]; }
 
 // ─── AUDIO ENGINE ─────────────────────────────────────────────────────────────
 class AudioEngine {
@@ -215,12 +218,35 @@ function buildArtisticPersonas(activeDisciplines, activeTransversals) {
   const t = ARTISTIC_TRANSVERSAL.filter(x => activeTransversals.includes(x.id)).map((x, i) => ({ ...x, voice: { pitch: 1.0 + i * 0.05, rate: 1.0, voiceIndex: i + 3 } }));
   return [{ ...ARTISTIC_DA }, ...d, ...t];
 }
-function formatDate(ts) {
-  if (!ts) return "";
-  return new Date(ts).toLocaleDateString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+function formatDate(ts) { if (!ts) return ""; return new Date(ts).toLocaleDateString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }); }
+function getAllPersonas(table) {
+  const fw = FRAMEWORKS[table.frameworkId];
+  const base = table.frameworkId === "artistique" ? buildArtisticPersonas(table.activeDisciplines || [], table.activeTransversals || []) : (fw?.personas || []);
+  return [...base, ...(table.customPersonas || [])];
+}
+function OnboardingModal({ onClose }) {
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}>
+      <div style={{ background: "#fff", borderRadius: 16, padding: 32, maxWidth: 480, width: "100%", animation: "fadeIn 0.3s ease" }}>
+        <div style={{ fontSize: 32, marginBottom: 12 }}>🪑</div>
+        <div style={{ fontWeight: 800, fontSize: 22, color: "#111827", marginBottom: 8 }}>Bienvenue sur Table Virtuelle</div>
+        <div style={{ fontSize: 14, color: "#6B7280", lineHeight: 1.7, marginBottom: 20 }}>Soumettez une décision à une table de débat IA — chaque participant apporte son angle et sa logique.</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24 }}>
+          {[["🎯","Choisissez un cadre","Six Chapeaux, CA, Pré-mortem, Projet Artistique"],["🗂️","Organisez en grappes","Sous-groupes en parallèle ↔ plénière, accessible à tout moment via ⚙️"],["💬","Débattez","Grappes → Plénière → retours en grappes si besoin"],["📋","Clôturez","Le Secrétaire produit une synthèse actionnelle avec feuille de route"]].map(([e,t,d]) => (
+            <div key={t} style={{ display: "flex", gap: 12 }}>
+              <span style={{ fontSize: 20, flexShrink: 0 }}>{e}</span>
+              <div><div style={{ fontWeight: 700, fontSize: 13, color: "#111827" }}>{t}</div><div style={{ fontSize: 12, color: "#9CA3AF" }}>{d}</div></div>
+            </div>
+          ))}
+        </div>
+        <div style={{ fontSize: 12, color: "#9CA3AF", marginBottom: 16 }}>Version bêta · <a href={`mailto:${FEEDBACK_EMAIL}`} style={{ color: "#6D28D9" }}>{FEEDBACK_EMAIL}</a></div>
+        <button onClick={onClose} style={{ width: "100%", background: "#111827", color: "#fff", border: "none", borderRadius: 10, padding: "12px", fontSize: 15, fontWeight: 700, cursor: "pointer" }}>Créer ma première table →</button>
+      </div>
+    </div>
+  );
 }
 
-// ─── GROUPS MANAGER ───────────────────────────────────────────────────────────
+// ─── ARTISTIC SETUP ───────────────────────────────────────────────────────────
 function GroupsManager({ personas, groups, setGroups, onSuggest, isSuggesting }) {
   const [dragging, setDragging] = useState(null);
   const [dragOver, setDragOver] = useState(null);
@@ -302,29 +328,6 @@ function GroupsManager({ personas, groups, setGroups, onSuggest, isSuggesting })
 }
 
 // ─── ONBOARDING ───────────────────────────────────────────────────────────────
-function OnboardingModal({ onClose }) {
-  return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}>
-      <div style={{ background: "#fff", borderRadius: 16, padding: 32, maxWidth: 480, width: "100%", animation: "fadeIn 0.3s ease" }}>
-        <div style={{ fontSize: 32, marginBottom: 12 }}>🪑</div>
-        <div style={{ fontWeight: 800, fontSize: 22, color: "#111827", marginBottom: 8 }}>Bienvenue sur Table Virtuelle</div>
-        <div style={{ fontSize: 14, color: "#6B7280", lineHeight: 1.7, marginBottom: 20 }}>Soumettez une décision à une table de débat IA — chaque participant apporte son angle et sa logique.</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24 }}>
-          {[["🎯","Choisissez un cadre","Six Chapeaux, CA, Pré-mortem, Projet Artistique"],["🗂️","Organisez en grappes","Sous-groupes qui débattent en parallèle avant la plénière"],["💬","Débattez","Grappes → Plénière → retours en grappes si besoin"],["📋","Clôturez","Le Secrétaire produit une synthèse actionnelle avec feuille de route"]].map(([e,t,d]) => (
-            <div key={t} style={{ display: "flex", gap: 12 }}>
-              <span style={{ fontSize: 20, flexShrink: 0 }}>{e}</span>
-              <div><div style={{ fontWeight: 700, fontSize: 13, color: "#111827" }}>{t}</div><div style={{ fontSize: 12, color: "#9CA3AF" }}>{d}</div></div>
-            </div>
-          ))}
-        </div>
-        <div style={{ fontSize: 12, color: "#9CA3AF", marginBottom: 16 }}>Version bêta · <a href={`mailto:${FEEDBACK_EMAIL}`} style={{ color: "#6D28D9" }}>{FEEDBACK_EMAIL}</a></div>
-        <button onClick={onClose} style={{ width: "100%", background: "#111827", color: "#fff", border: "none", borderRadius: 10, padding: "12px", fontSize: 15, fontWeight: 700, cursor: "pointer" }}>Créer ma première table →</button>
-      </div>
-    </div>
-  );
-}
-
-// ─── ARTISTIC SETUP ───────────────────────────────────────────────────────────
 function ArtisticSetup({ activeDisciplines, setActiveDisciplines, activeTransversals, setActiveTransversals, userPresets, onSavePreset, onLoadPreset }) {
   const [showSave, setShowSave] = useState(false);
   const [presetName, setPresetName] = useState("");
@@ -675,198 +678,6 @@ Génère un JSON avec exactement ces champs :
     </div>
   );
 }
-// ─── SETUP SCREEN ─────────────────────────────────────────────────────────────
-function SetupScreen({ onStart }) {
-  const [topic, setTopic] = useState("");
-  const [frameworkId, setFrameworkId] = useState("boardroom");
-  const [customPersonas, setCustomPersonas] = useState([]);
-  const [humanParticipants, setHumanParticipants] = useState([]);
-  const [docs, setDocs] = useState([]);
-  const [showCustomBuilder, setShowCustomBuilder] = useState(false);
-  const [showHumanBuilder, setShowHumanBuilder] = useState(false);
-  const [newHumanName, setNewHumanName] = useState(""), [newHumanRole, setNewHumanRole] = useState("");
-  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
-  const [disabledPersonas, setDisabledPersonas] = useState(new Set());
-  const [activeDisciplines, setActiveDisciplines] = useState(["mise_en_scene", "scenographie"]);
-  const [activeTransversals, setActiveTransversals] = useState(["production_art", "regie", "public_art"]);
-  const [userPresets, setUserPresets] = useState([]);
-  const [useGroups, setUseGroups] = useState(false);
-  const [plenaryFirst, setPlenaryFirst] = useState(false);
-  const [groups, setGroups] = useState([]);
-  const [isSuggesting, setIsSuggesting] = useState(false);
-  const fileRef = useRef();
-
-  useEffect(() => { loadUserPresets().then(setUserPresets); }, []);
-
-  const framework = FRAMEWORKS[frameworkId];
-  const basePersonas = frameworkId === "artistique" ? buildArtisticPersonas(activeDisciplines, activeTransversals) : framework.personas;
-  const allAiPersonas = [...basePersonas, ...customPersonas];
-  const activePersonas = allAiPersonas.filter(p => !disabledPersonas.has(p.id));
-
-  const handleFiles = async (files) => { const r = await Promise.all(Array.from(files).map(fileToContext)); setDocs(prev => [...prev, ...r]); };
-  const addHuman = () => {
-    if (!newHumanName.trim()) return;
-    const idx = humanParticipants.length;
-    setHumanParticipants(prev => [...prev, { id: `human_${Date.now()}`, name: newHumanName.trim(), role: newHumanRole.trim() || "Participant", emoji: HUMAN_EMOJIS[idx % HUMAN_EMOJIS.length], color: HUMAN_COLORS[idx % HUMAN_COLORS.length], isHuman: true }]);
-    setNewHumanName(""); setNewHumanRole(""); setShowHumanBuilder(false);
-  };
-  const togglePersona = (id) => setDisabledPersonas(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
-  const handleSavePreset = async (preset) => { const u = [...userPresets, preset]; setUserPresets(u); await saveUserPresets(u); };
-  const handleLoadPreset = (preset) => { setActiveDisciplines(preset.disciplines); setActiveTransversals(preset.transversals); };
-
-  const suggestGroups = async () => {
-    setIsSuggesting(true);
-    const pList = activePersonas.map(p => `${p.id}:${p.name}(${p.role})`).join(", ");
-    const raw = await callClaudeSimple(
-      "Tu es expert en facilitation. Réponds UNIQUEMENT avec un JSON valide, sans markdown.",
-      `Personas pour le sujet "${topic || "à définir"}" (framework: ${framework?.label}):\n${pList}\n\nPropose 2-3 grappes logiques. Format: [{"name":"Nom","personaIds":["id1","id2"]},...]`
-    );
-    try {
-      const suggested = JSON.parse(raw.replace(/```json|```/g, "").trim());
-      setGroups(suggested.map((g, i) => ({ id: `group_${Date.now()}_${i}`, name: g.name, color: GROUP_COLORS[i % GROUP_COLORS.length], personaIds: g.personaIds.filter(id => activePersonas.some(p => p.id === id)) })));
-    } catch { console.error("Parse error", raw); }
-    setIsSuggesting(false);
-  };
-
-  return (
-    <div style={{ maxWidth: 680, margin: "0 auto", padding: "24px 20px" }}>
-      <div style={{ marginBottom: 24 }}>
-        <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#374151", marginBottom: 8 }}>Sujet ou question à débattre</label>
-        <textarea value={topic} onChange={e => setTopic(e.target.value)} placeholder="Ex : Dois-je lancer en B2C ou B2B d'abord ?" rows={3}
-          style={{ width: "100%", border: "2px solid #E5E7EB", borderRadius: 10, padding: "12px 14px", fontSize: 15, lineHeight: 1.5, resize: "none", fontFamily: "system-ui" }}
-          onFocus={e => e.target.style.borderColor = "#111827"} onBlur={e => e.target.style.borderColor = "#E5E7EB"} />
-      </div>
-
-      <div style={{ marginBottom: 24 }}>
-        <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#374151", marginBottom: 8 }}>Documents <span style={{ color: "#9CA3AF", fontWeight: 400 }}>(optionnel)</span></label>
-        {docs.length > 0 && <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>{docs.map((doc, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: 4, background: "#F3F4F6", border: "1px solid #E5E7EB", borderRadius: 6, padding: "3px 8px", fontSize: 12 }}>
-            <span>{doc.type === "image" ? "🖼️" : doc.type === "pdf" ? "📄" : "📝"}</span>
-            <span style={{ color: "#374151", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.name}</span>
-            <button onClick={() => setDocs(prev => prev.filter((_, j) => j !== i))} style={{ background: "none", border: "none", color: "#9CA3AF", cursor: "pointer", padding: 0 }}>×</button>
-          </div>
-        ))}</div>}
-        <button onClick={() => fileRef.current.click()} style={{ width: "100%", border: "1.5px dashed #D1D5DB", borderRadius: 10, padding: "12px", background: "#FAFAFA", color: "#6B7280", fontSize: 13, cursor: "pointer" }}>📎 Ajouter PDF, image, texte…</button>
-        <input ref={fileRef} type="file" multiple accept=".pdf,.txt,.md,.csv,.jpg,.jpeg,.png,.webp" style={{ display: "none" }} onChange={e => handleFiles(e.target.files)} />
-      </div>
-
-      <div style={{ marginBottom: 20 }}>
-        <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#374151", marginBottom: 8 }}>Cadre de réflexion</label>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {Object.values(FRAMEWORKS).map(fw => (
-            <button key={fw.id} onClick={() => { setFrameworkId(fw.id); setDisabledPersonas(new Set()); setGroups([]); }}
-              style={{ background: frameworkId === fw.id ? "#111827" : "#F9FAFB", border: `2px solid ${frameworkId === fw.id ? "#111827" : "#E5E7EB"}`, borderRadius: 10, padding: "10px 14px", cursor: "pointer", textAlign: "left" }}>
-              <div style={{ fontWeight: 700, fontSize: 14, color: frameworkId === fw.id ? "#fff" : "#111827", marginBottom: 2 }}>{fw.label}</div>
-              <div style={{ fontSize: 12, color: frameworkId === fw.id ? "#D1D5DB" : "#6B7280" }}>{fw.description}</div>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {frameworkId === "artistique" && (
-        <div style={{ marginBottom: 20, padding: 16, background: "#FAFAFA", border: "1.5px solid #DDD6FE", borderRadius: 12 }}>
-          <ArtisticSetup activeDisciplines={activeDisciplines} setActiveDisciplines={setActiveDisciplines} activeTransversals={activeTransversals} setActiveTransversals={setActiveTransversals} userPresets={userPresets} onSavePreset={handleSavePreset} onLoadPreset={handleLoadPreset} />
-        </div>
-      )}
-
-      {allAiPersonas.length > 0 && (
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 12, color: "#9CA3AF", fontWeight: 700, marginBottom: 8 }}>PERSONAS IA</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-            {allAiPersonas.map(p => {
-              const disabled = disabledPersonas.has(p.id);
-              return (
-                <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, background: disabled ? "#F9FAFB" : p.bg, border: `1px solid ${disabled ? "#E5E7EB" : p.border}`, borderRadius: 8, padding: "5px 10px", opacity: disabled ? 0.5 : 1 }}>
-                  <span>{p.emoji}</span>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: disabled ? "#9CA3AF" : p.color, flex: 1 }}>{p.name}</span>
-                  <span style={{ fontSize: 11, color: "#9CA3AF" }}>{p.role}</span>
-                  {p.isCustom && <button onClick={() => setCustomPersonas(prev => prev.filter(cp => cp.id !== p.id))} style={{ background: "none", border: "none", color: "#9CA3AF", cursor: "pointer", fontSize: 11 }}>×</button>}
-                  <button onClick={() => togglePersona(p.id)} style={{ fontSize: 11, background: disabled ? "#F3F4F6" : p.bg, border: `1px solid ${disabled ? "#E5E7EB" : p.border}`, borderRadius: 4, padding: "2px 8px", cursor: "pointer", color: disabled ? "#9CA3AF" : p.color, fontWeight: 600 }}>{disabled ? "OFF" : "ON"}</button>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {activePersonas.length >= 3 && (
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "#FAFAFE", border: "1px solid #E5E7EB", borderRadius: 10, marginBottom: useGroups ? 12 : 0 }}>
-            <span>🗂️</span>
-            <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 700, color: "#374151" }}>Organiser en grappes</div><div style={{ fontSize: 11, color: "#9CA3AF" }}>Sous-groupes qui débattent en parallèle avant la plénière</div></div>
-            <button onClick={() => setUseGroups(v => !v)} style={{ width: 40, height: 22, borderRadius: 11, border: "none", cursor: "pointer", background: useGroups ? "#7C3AED" : "#CBD5E1", position: "relative" }}>
-              <span style={{ position: "absolute", top: 2, width: 18, height: 18, borderRadius: "50%", background: "#fff", transition: "left 0.2s", left: useGroups ? 20 : 2 }} />
-            </button>
-          </div>
-          {useGroups && (
-            <>
-              <GroupsManager personas={activePersonas} groups={groups} setGroups={setGroups} onSuggest={suggestGroups} isSuggesting={isSuggesting} />
-              <div style={{ marginBottom: 10 }}>
-                <div style={{ fontSize: 12, color: "#9CA3AF", fontWeight: 700, marginBottom: 8 }}>MODE DE DÉMARRAGE</div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button onClick={() => setPlenaryFirst(false)}
-                    style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: `2px solid ${!plenaryFirst ? "#7C3AED" : "#E5E7EB"}`, background: !plenaryFirst ? "#F5F3FF" : "#fff", color: !plenaryFirst ? "#7C3AED" : "#6B7280", fontSize: 12, fontWeight: !plenaryFirst ? 700 : 400, cursor: "pointer", textAlign: "left" }}>
-                    <div>🗂️ Grappes d'abord</div>
-                    <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 2 }}>Sous-groupes → Plénière</div>
-                  </button>
-                  <button onClick={() => setPlenaryFirst(true)}
-                    style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: `2px solid ${plenaryFirst ? "#7C3AED" : "#E5E7EB"}`, background: plenaryFirst ? "#F5F3FF" : "#fff", color: plenaryFirst ? "#7C3AED" : "#6B7280", fontSize: 12, fontWeight: plenaryFirst ? 700 : 400, cursor: "pointer", textAlign: "left" }}>
-                    <div>🏛️ Plénière d'abord</div>
-                    <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 2 }}>Plénière → Éclater en grappes</div>
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      <div style={{ marginBottom: 16, display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "#F0F9FF", border: "1px solid #BAE6FD", borderRadius: 10 }}>
-        <span>🌐</span>
-        <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 700, color: "#0C4A6E" }}>Web search</div><div style={{ fontSize: 11, color: "#0369A1" }}>Les personas cherchent sur le web avant de répondre</div></div>
-        <button onClick={() => setWebSearchEnabled(v => !v)} style={{ width: 40, height: 22, borderRadius: 11, border: "none", cursor: "pointer", background: webSearchEnabled ? "#0369A1" : "#CBD5E1", position: "relative" }}>
-          <span style={{ position: "absolute", top: 2, width: 18, height: 18, borderRadius: "50%", background: "#fff", transition: "left 0.2s", left: webSearchEnabled ? 20 : 2 }} />
-        </button>
-      </div>
-
-      <div style={{ marginBottom: 20 }}>
-        <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#374151", marginBottom: 8 }}>Participants humains <span style={{ color: "#9CA3AF", fontWeight: 400 }}>(optionnel)</span></label>
-        {humanParticipants.length > 0 && <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>{humanParticipants.map(h => (
-          <div key={h.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "#F9FAFB", border: `1.5px solid ${h.color}22`, borderRadius: 8, padding: "6px 10px" }}>
-            <span>{h.emoji}</span><span style={{ fontSize: 13, fontWeight: 700, color: h.color, flex: 1 }}>{h.name}</span>
-            <span style={{ fontSize: 12, color: "#9CA3AF" }}>{h.role}</span>
-            <button onClick={() => setHumanParticipants(prev => prev.filter(x => x.id !== h.id))} style={{ background: "none", border: "none", color: "#9CA3AF", cursor: "pointer" }}>×</button>
-          </div>
-        ))}</div>}
-        {showHumanBuilder ? (
-          <div style={{ border: "1.5px dashed #BBF7D0", borderRadius: 10, padding: 14, background: "#F0FDF4" }}>
-            <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-              <input value={newHumanName} onChange={e => setNewHumanName(e.target.value)} placeholder="Prénom ou nom" style={{ flex: 1, border: "1.5px solid #A7F3D0", borderRadius: 8, padding: "6px 10px", fontSize: 13 }} onKeyDown={e => e.key === "Enter" && addHuman()} />
-              <input value={newHumanRole} onChange={e => setNewHumanRole(e.target.value)} placeholder="Rôle" style={{ flex: 1, border: "1.5px solid #A7F3D0", borderRadius: 8, padding: "6px 10px", fontSize: 13 }} onKeyDown={e => e.key === "Enter" && addHuman()} />
-            </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={() => setShowHumanBuilder(false)} style={{ flex: 1, background: "#F3F4F6", border: "none", borderRadius: 8, padding: "7px", fontSize: 13, cursor: "pointer" }}>Annuler</button>
-              <button onClick={addHuman} style={{ flex: 2, background: "#059669", color: "#fff", border: "none", borderRadius: 8, padding: "7px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Ajouter</button>
-            </div>
-          </div>
-        ) : <button onClick={() => setShowHumanBuilder(true)} style={{ width: "100%", border: "1.5px dashed #A7F3D0", borderRadius: 10, padding: "10px", background: "#F0FDF4", color: "#059669", fontSize: 13, cursor: "pointer" }}>👤 Ajouter un participant humain</button>}
-      </div>
-
-      <div style={{ marginBottom: 24 }}>
-        {!showCustomBuilder
-          ? <button onClick={() => setShowCustomBuilder(true)} style={{ width: "100%", border: "1.5px dashed #D1D5DB", borderRadius: 10, padding: "10px", background: "#FAFAFA", color: "#6B7280", fontSize: 13, cursor: "pointer" }}>🧠 Créer un persona depuis profil</button>
-          : <PersonaProfileBuilder existingDocs={docs} onAdd={p => { setCustomPersonas(prev => [...prev, p]); setShowCustomBuilder(false); }} onCancel={() => setShowCustomBuilder(false)} />}
-      </div>
-
-      <button onClick={() => onStart({ topic, frameworkId, customPersonas, humanParticipants, docs, webSearchEnabled, disabledPersonas: [...disabledPersonas], activeDisciplines, activeTransversals, groups: useGroups ? groups : [], useGroups, plenaryFirst: useGroups ? plenaryFirst : false })}
-        disabled={!topic.trim() || activePersonas.length === 0}
-        style={{ width: "100%", background: topic.trim() && activePersonas.length > 0 ? "#111827" : "#E5E7EB", color: topic.trim() && activePersonas.length > 0 ? "#fff" : "#9CA3AF", border: "none", borderRadius: 10, padding: "14px", fontSize: 15, fontWeight: 700, cursor: topic.trim() && activePersonas.length > 0 ? "pointer" : "not-allowed" }}>
-        Ouvrir la table → ({activePersonas.length} persona{activePersonas.length > 1 ? "s" : ""}{useGroups && groups.length > 0 ? `, ${groups.length} grappes` : ""})
-      </button>
-    </div>
-  );
-}
-
 // ─── MESSAGE BUBBLE ───────────────────────────────────────────────────────────
 function MessageBubble({ msg, aiPersonas, humanParticipants, groups, onChallenge, onSpeak, isSpeaking }) {
   const isUser = msg.role === "user";
@@ -943,7 +754,6 @@ function MessageBubble({ msg, aiPersonas, humanParticipants, groups, onChallenge
   );
 }
 
-// ─── GROUP TAB BAR ────────────────────────────────────────────────────────────
 function GroupTabBar({ groups, activeGroupId, setActiveGroupId, plenaryReady, onStartPlenary, sessionPhase }) {
   return (
     <div style={{ borderBottom: "1px solid #F3F4F6", padding: "8px 14px", display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", flexShrink: 0, background: "#FAFAFA" }}>
@@ -966,68 +776,408 @@ function GroupTabBar({ groups, activeGroupId, setActiveGroupId, plenaryReady, on
   );
 }
 
+
+// ─── SETTINGS DRAWER ──────────────────────────────────────────────────────────
+// Le cœur du nouveau design : panneaux de configuration accessibles avant et pendant le débat
+
+function SettingsCard({ emoji, title, summary, isOpen, onToggle, children }) {
+  return (
+    <div style={{ borderBottom: "1px solid #F3F4F6" }}>
+      <button onClick={onToggle} style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}>
+        <span style={{ fontSize: 20, flexShrink: 0 }}>{emoji}</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#111827" }}>{title}</div>
+          {summary && <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{summary}</div>}
+        </div>
+        <span style={{ fontSize: 12, color: "#9CA3AF", transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>▼</span>
+      </button>
+      {isOpen && <div style={{ padding: "0 16px 16px 16px" }}>{children}</div>}
+    </div>
+  );
+}
+
+function SettingsDrawer({ isOpen, onClose, config, onConfigChange, isMobile, inDebate }) {
+  const [openCard, setOpenCard] = useState(inDebate ? null : "subject");
+  const [userPresets, setUserPresets] = useState([]);
+  const [isSuggesting, setIsSuggesting] = useState(false);
+  const [showPersonaBuilder, setShowPersonaBuilder] = useState(false);
+  const [showHumanBuilder, setShowHumanBuilder] = useState(false);
+  const [newHumanName, setNewHumanName] = useState("");
+  const [newHumanRole, setNewHumanRole] = useState("");
+  const fileRef = useRef();
+
+  useEffect(() => { loadUserPresets().then(setUserPresets); }, []);
+
+  const toggleCard = (id) => setOpenCard(v => v === id ? null : id);
+  const update = (patch) => onConfigChange(prev => ({ ...prev, ...patch }));
+
+  const fw = FRAMEWORKS[config.frameworkId || "boardroom"];
+  const basePersonas = config.frameworkId === "artistique"
+    ? buildArtisticPersonas(config.activeDisciplines || [], config.activeTransversals || [])
+    : (fw?.personas || []);
+  const allPersonas = [...basePersonas, ...(config.customPersonas || [])];
+  const activePersonas = allPersonas.filter(p => !(config.disabledPersonas || []).includes(p.id));
+
+  const togglePersona = (id) => update({ disabledPersonas: config.disabledPersonas?.includes(id) ? config.disabledPersonas.filter(x => x !== id) : [...(config.disabledPersonas || []), id] });
+
+  const handleFiles = async (files) => {
+    const r = await Promise.all(Array.from(files).map(fileToContext));
+    update({ docs: [...(config.docs || []), ...r] });
+  };
+
+  const addHuman = () => {
+    if (!newHumanName.trim()) return;
+    const idx = (config.humanParticipants || []).length;
+    update({ humanParticipants: [...(config.humanParticipants || []), { id: `human_${Date.now()}`, name: newHumanName.trim(), role: newHumanRole.trim() || "Participant", emoji: HUMAN_EMOJIS[idx % HUMAN_EMOJIS.length], color: HUMAN_COLORS[idx % HUMAN_COLORS.length], isHuman: true }] });
+    setNewHumanName(""); setNewHumanRole(""); setShowHumanBuilder(false);
+  };
+
+  const suggestGroups = async () => {
+    if (!activePersonas.length) return;
+    setIsSuggesting(true);
+    const pList = activePersonas.map(p => `${p.id}:${p.name}(${p.role})`).join(", ");
+    const raw = await callClaudeSimple("Réponds UNIQUEMENT avec un JSON valide, sans markdown.",
+      `Personas pour "${config.topic || "sujet à définir"}" (${fw?.label}):\n${pList}\nPropose 2-3 grappes. Format: [{"name":"Nom","personaIds":["id1","id2"]},...]`);
+    try {
+      const suggested = JSON.parse(raw.replace(/```json|```/g, "").trim());
+      update({ groups: suggested.map((g, i) => ({ id: `group_${Date.now()}_${i}`, name: g.name, color: GROUP_COLORS[i % GROUP_COLORS.length], personaIds: g.personaIds.filter(id => activePersonas.some(p => p.id === id)) })) });
+    } catch {}
+    setIsSuggesting(false);
+  };
+
+  // Drawer container style — desktop: fixed right panel, mobile: bottom sheet
+  const drawerStyle = isMobile ? {
+    position: "fixed", bottom: 0, left: 0, right: 0,
+    background: "#fff", borderRadius: "16px 16px 0 0",
+    boxShadow: "0 -4px 24px rgba(0,0,0,0.12)",
+    maxHeight: "85vh", overflowY: "auto", zIndex: 200,
+    transform: isOpen ? "translateY(0)" : "translateY(100%)",
+    transition: "transform 0.3s cubic-bezier(0.4,0,0.2,1)",
+  } : {
+    position: "fixed", top: 0, right: 0, bottom: 0,
+    width: 380, background: "#fff",
+    boxShadow: "-4px 0 24px rgba(0,0,0,0.08)",
+    overflowY: "auto", zIndex: 200,
+    transform: isOpen ? "translateX(0)" : "translateX(100%)",
+    transition: "transform 0.3s cubic-bezier(0.4,0,0.2,1)",
+  };
+
+  return (
+    <>
+      {isOpen && <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", zIndex: 199 }} />}
+      <div style={drawerStyle}>
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 16px 12px", borderBottom: "1px solid #F3F4F6", position: "sticky", top: 0, background: "#fff", zIndex: 1 }}>
+          {isMobile && <div style={{ width: 40, height: 4, background: "#E5E7EB", borderRadius: 2, margin: "0 auto 12px", display: "block", position: "absolute", top: 8, left: "50%", transform: "translateX(-50%)" }} />}
+          <div style={{ fontWeight: 700, fontSize: 15, color: "#111827" }}>⚙️ Configuration</div>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "#9CA3AF", cursor: "pointer", fontSize: 20, padding: 4 }}>×</button>
+        </div>
+
+        {/* ── SUJET ── */}
+        <SettingsCard emoji="📝" title="Sujet" summary={config.topic || "Non défini"} isOpen={openCard === "subject"} onToggle={() => toggleCard("subject")}>
+          <textarea value={config.topic || ""} onChange={e => update({ topic: e.target.value })}
+            placeholder="La question ou décision à débattre…" rows={3}
+            style={{ width: "100%", border: "1.5px solid #E5E7EB", borderRadius: 8, padding: "8px 10px", fontSize: 14, resize: "none", fontFamily: "system-ui", boxSizing: "border-box" }}
+            onFocus={e => e.target.style.borderColor = "#111827"} onBlur={e => e.target.style.borderColor = "#E5E7EB"} />
+        </SettingsCard>
+
+        {/* ── CADRE ── */}
+        <SettingsCard emoji="🎯" title="Cadre de réflexion" summary={fw?.label || "Non défini"} isOpen={openCard === "framework"} onToggle={() => toggleCard("framework")}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {Object.values(FRAMEWORKS).map(f => (
+              <button key={f.id} onClick={() => update({ frameworkId: f.id, disabledPersonas: [] })}
+                style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8, border: `1.5px solid ${config.frameworkId === f.id ? "#111827" : "#E5E7EB"}`, background: config.frameworkId === f.id ? "#111827" : "#fff", cursor: "pointer", textAlign: "left" }}>
+                <span style={{ fontSize: 18 }}>{f.emoji}</span>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: config.frameworkId === f.id ? "#fff" : "#111827" }}>{f.label}</div>
+                  <div style={{ fontSize: 11, color: config.frameworkId === f.id ? "#9CA3AF" : "#6B7280" }}>{f.description}</div>
+                </div>
+              </button>
+            ))}
+          </div>
+          {config.frameworkId === "artistique" && (
+            <div style={{ marginTop: 12 }}>
+              <ArtisticSetup
+                activeDisciplines={config.activeDisciplines || []} setActiveDisciplines={v => update({ activeDisciplines: v })}
+                activeTransversals={config.activeTransversals || []} setActiveTransversals={v => update({ activeTransversals: v })}
+                userPresets={userPresets}
+                onSavePreset={async (p) => { const u = [...userPresets, p]; setUserPresets(u); await saveUserPresets(u); }}
+                onLoadPreset={p => update({ activeDisciplines: p.disciplines, activeTransversals: p.transversals })}
+              />
+            </div>
+          )}
+        </SettingsCard>
+
+        {/* ── PERSONAS ── */}
+        <SettingsCard emoji="🎭" title="Personas IA" summary={`${activePersonas.length} actif${activePersonas.length > 1 ? "s" : ""} sur ${allPersonas.length}`} isOpen={openCard === "personas"} onToggle={() => toggleCard("personas")}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 5, marginBottom: 10 }}>
+            {allPersonas.map(p => {
+              const disabled = (config.disabledPersonas || []).includes(p.id);
+              return (
+                <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, background: disabled ? "#F9FAFB" : p.bg, border: `1px solid ${disabled ? "#E5E7EB" : p.border}`, borderRadius: 8, padding: "5px 10px", opacity: disabled ? 0.5 : 1 }}>
+                  <span>{p.emoji}</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: disabled ? "#9CA3AF" : p.color, flex: 1 }}>{p.name}</span>
+                  <span style={{ fontSize: 11, color: "#9CA3AF" }}>{p.role}</span>
+                  {p.isCustom && <button onClick={() => update({ customPersonas: (config.customPersonas || []).filter(x => x.id !== p.id) })} style={{ background: "none", border: "none", color: "#9CA3AF", cursor: "pointer", fontSize: 11 }}>×</button>}
+                  <button onClick={() => togglePersona(p.id)} style={{ fontSize: 11, background: disabled ? "#F3F4F6" : p.bg, border: `1px solid ${disabled ? "#E5E7EB" : p.border}`, borderRadius: 4, padding: "2px 8px", cursor: "pointer", color: disabled ? "#9CA3AF" : p.color, fontWeight: 600 }}>
+                    {disabled ? "OFF" : "ON"}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+          {!showPersonaBuilder
+            ? <button onClick={() => setShowPersonaBuilder(true)} style={{ width: "100%", border: "1.5px dashed #D1D5DB", borderRadius: 8, padding: "8px", background: "#FAFAFA", color: "#6B7280", fontSize: 12, cursor: "pointer" }}>🧠 Créer un persona depuis profil</button>
+            : <PersonaProfileBuilder existingDocs={config.docs || []} onAdd={p => { update({ customPersonas: [...(config.customPersonas || []), p] }); setShowPersonaBuilder(false); }} onCancel={() => setShowPersonaBuilder(false)} />}
+        </SettingsCard>
+
+        {/* ── GRAPPES ── */}
+        {activePersonas.length >= 3 && (
+          <SettingsCard emoji="🗂️" title="Grappes de travail" summary={(config.groups || []).length > 0 ? `${config.groups.length} grappes · ${config.plenaryFirst ? "🏛️ Plénière d'abord" : "🗂️ Grappes d'abord"}` : "Non configurées"} isOpen={openCard === "groups"} onToggle={() => toggleCard("groups")}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+              <span style={{ fontSize: 12, color: "#6B7280" }}>Activer les grappes</span>
+              <button onClick={() => update({ useGroups: !config.useGroups, groups: config.useGroups ? [] : (config.groups || []) })}
+                style={{ width: 36, height: 20, borderRadius: 10, border: "none", cursor: "pointer", background: config.useGroups ? "#7C3AED" : "#CBD5E1", position: "relative", marginLeft: "auto" }}>
+                <span style={{ position: "absolute", top: 2, width: 16, height: 16, borderRadius: "50%", background: "#fff", left: config.useGroups ? 18 : 2, transition: "left 0.2s" }} />
+              </button>
+            </div>
+            {config.useGroups && (
+              <>
+                <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+                  <button onClick={() => update({ plenaryFirst: false })} style={{ flex: 1, padding: "6px 8px", borderRadius: 8, border: `1.5px solid ${!config.plenaryFirst ? "#7C3AED" : "#E5E7EB"}`, background: !config.plenaryFirst ? "#F5F3FF" : "#fff", color: !config.plenaryFirst ? "#7C3AED" : "#6B7280", fontSize: 11, fontWeight: !config.plenaryFirst ? 700 : 400, cursor: "pointer" }}>🗂️ Grappes d'abord</button>
+                  <button onClick={() => update({ plenaryFirst: true })} style={{ flex: 1, padding: "6px 8px", borderRadius: 8, border: `1.5px solid ${config.plenaryFirst ? "#7C3AED" : "#E5E7EB"}`, background: config.plenaryFirst ? "#F5F3FF" : "#fff", color: config.plenaryFirst ? "#7C3AED" : "#6B7280", fontSize: 11, fontWeight: config.plenaryFirst ? 700 : 400, cursor: "pointer" }}>🏛️ Plénière d'abord</button>
+                </div>
+                <GroupsManager personas={activePersonas} groups={config.groups || []} setGroups={g => update({ groups: g })} onSuggest={suggestGroups} isSuggesting={isSuggesting} />
+              </>
+            )}
+          </SettingsCard>
+        )}
+
+        {/* ── DOCUMENTS ── */}
+        <SettingsCard emoji="📎" title="Documents" summary={(config.docs || []).length > 0 ? `${config.docs.length} fichier${config.docs.length > 1 ? "s" : ""}` : "Aucun"} isOpen={openCard === "docs"} onToggle={() => toggleCard("docs")}>
+          {(config.docs || []).length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 8 }}>
+              {config.docs.map((doc, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 4, background: "#F3F4F6", border: "1px solid #E5E7EB", borderRadius: 6, padding: "2px 8px", fontSize: 11 }}>
+                  <span>{doc.type === "pdf" ? "📄" : doc.type === "image" ? "🖼️" : "📝"}</span>
+                  <span style={{ maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.name}</span>
+                  <button onClick={() => update({ docs: config.docs.filter((_, j) => j !== i) })} style={{ background: "none", border: "none", color: "#9CA3AF", cursor: "pointer", padding: 0 }}>×</button>
+                </div>
+              ))}
+            </div>
+          )}
+          <button onClick={() => fileRef.current.click()} style={{ width: "100%", border: "1.5px dashed #D1D5DB", borderRadius: 8, padding: "8px", background: "#FAFAFA", color: "#6B7280", fontSize: 12, cursor: "pointer" }}>+ PDF, image, texte…</button>
+          <input ref={fileRef} type="file" multiple accept=".pdf,.txt,.md,.csv,.jpg,.jpeg,.png,.webp" style={{ display: "none" }} onChange={e => handleFiles(e.target.files)} />
+        </SettingsCard>
+
+        {/* ── OPTIONS ── */}
+        <SettingsCard emoji="⚙️" title="Options" summary={[config.webSearchEnabled && "Web search", (config.humanParticipants || []).length > 0 && `${config.humanParticipants.length} humain(s)`].filter(Boolean).join(" · ") || "Par défaut"} isOpen={openCard === "options"} onToggle={() => toggleCard("options")}>
+          {/* Web search */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, padding: "8px 10px", background: "#F0F9FF", border: "1px solid #BAE6FD", borderRadius: 8 }}>
+            <span>🌐</span>
+            <div style={{ flex: 1, fontSize: 12, fontWeight: 600, color: "#0C4A6E" }}>Web search</div>
+            <button onClick={() => update({ webSearchEnabled: !config.webSearchEnabled })}
+              style={{ width: 36, height: 20, borderRadius: 10, border: "none", cursor: "pointer", background: config.webSearchEnabled ? "#0369A1" : "#CBD5E1", position: "relative" }}>
+              <span style={{ position: "absolute", top: 2, width: 16, height: 16, borderRadius: "50%", background: "#fff", left: config.webSearchEnabled ? 18 : 2, transition: "left 0.2s" }} />
+            </button>
+          </div>
+          {/* Participants humains */}
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#374151", marginBottom: 6 }}>Participants humains</div>
+          {(config.humanParticipants || []).length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 5, marginBottom: 8 }}>
+              {config.humanParticipants.map(h => (
+                <div key={h.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "#F9FAFB", border: `1px solid ${h.color}22`, borderRadius: 7, padding: "5px 8px" }}>
+                  <span>{h.emoji}</span><span style={{ fontSize: 12, fontWeight: 700, color: h.color, flex: 1 }}>{h.name}</span>
+                  <span style={{ fontSize: 11, color: "#9CA3AF" }}>{h.role}</span>
+                  <button onClick={() => update({ humanParticipants: config.humanParticipants.filter(x => x.id !== h.id) })} style={{ background: "none", border: "none", color: "#9CA3AF", cursor: "pointer" }}>×</button>
+                </div>
+              ))}
+            </div>
+          )}
+          {showHumanBuilder ? (
+            <div style={{ border: "1.5px dashed #BBF7D0", borderRadius: 8, padding: 10, background: "#F0FDF4" }}>
+              <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+                <input value={newHumanName} onChange={e => setNewHumanName(e.target.value)} placeholder="Nom" style={{ flex: 1, border: "1.5px solid #A7F3D0", borderRadius: 6, padding: "5px 8px", fontSize: 12 }} onKeyDown={e => e.key === "Enter" && addHuman()} />
+                <input value={newHumanRole} onChange={e => setNewHumanRole(e.target.value)} placeholder="Rôle" style={{ flex: 1, border: "1.5px solid #A7F3D0", borderRadius: 6, padding: "5px 8px", fontSize: 12 }} onKeyDown={e => e.key === "Enter" && addHuman()} />
+              </div>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button onClick={() => setShowHumanBuilder(false)} style={{ flex: 1, background: "#F3F4F6", border: "none", borderRadius: 6, padding: "5px", fontSize: 12, cursor: "pointer" }}>Annuler</button>
+                <button onClick={addHuman} style={{ flex: 2, background: "#059669", color: "#fff", border: "none", borderRadius: 6, padding: "5px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Ajouter</button>
+              </div>
+            </div>
+          ) : <button onClick={() => setShowHumanBuilder(true)} style={{ width: "100%", border: "1.5px dashed #A7F3D0", borderRadius: 8, padding: "7px", background: "#F0FDF4", color: "#059669", fontSize: 12, cursor: "pointer" }}>👤 Ajouter un participant humain</button>}
+        </SettingsCard>
+
+        {/* Footer avec bouton Ouvrir — seulement en mode setup */}
+        {!inDebate && (
+          <div style={{ padding: 16, borderTop: "1px solid #F3F4F6", position: "sticky", bottom: 0, background: "#fff" }}>
+            <div style={{ fontSize: 11, color: "#9CA3AF", marginBottom: 8, textAlign: "center" }}>
+              {activePersonas.length} persona{activePersonas.length > 1 ? "s" : ""} actif{activePersonas.length > 1 ? "s" : ""}
+              {(config.groups || []).length > 0 && ` · ${config.groups.length} grappes`}
+            </div>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+// ─── SETUP SCREEN — nouvelle version épurée ───────────────────────────────────
+function SetupScreen({ onStart }) {
+  const isMobile = useIsMobile();
+  const [drawerOpen, setDrawerOpen] = useState(true); // ouvert par défaut au setup
+  const [config, setConfig] = useState({
+    topic: "", frameworkId: "boardroom", customPersonas: [], humanParticipants: [],
+    docs: [], webSearchEnabled: false, disabledPersonas: [], activeDisciplines: ["mise_en_scene", "scenographie"],
+    activeTransversals: ["production_art", "regie", "public_art"], groups: [], useGroups: false, plenaryFirst: false,
+  });
+
+  const fw = FRAMEWORKS[config.frameworkId || "boardroom"];
+  const basePersonas = config.frameworkId === "artistique" ? buildArtisticPersonas(config.activeDisciplines || [], config.activeTransversals || []) : (fw?.personas || []);
+  const allPersonas = [...basePersonas, ...(config.customPersonas || [])];
+  const activePersonas = allPersonas.filter(p => !(config.disabledPersonas || []).includes(p.id));
+  const canStart = config.topic?.trim() && activePersonas.length > 0;
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#FAFAFA", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "system-ui, -apple-system, sans-serif" }}>
+      <div style={{ maxWidth: 480, width: "100%", textAlign: "center" }}>
+        <div style={{ fontSize: 40, marginBottom: 12 }}>🪑</div>
+        <div style={{ fontWeight: 800, fontSize: 26, color: "#111827", letterSpacing: "-0.5px", marginBottom: 6 }}>Table Virtuelle</div>
+        <div style={{ fontSize: 15, color: "#6B7280", marginBottom: 32 }}>Plusieurs cerveaux, une seule décision</div>
+
+        {/* Sujet — champ principal bien visible */}
+        <div style={{ background: "#fff", border: "2px solid #E5E7EB", borderRadius: 14, padding: 20, marginBottom: 16, textAlign: "left" }}>
+          <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#9CA3AF", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.5px" }}>Sujet ou question</label>
+          <textarea value={config.topic} onChange={e => setConfig(prev => ({ ...prev, topic: e.target.value }))}
+            placeholder="Ex : Faut-il lancer en B2C ou B2B d'abord ?" rows={3}
+            style={{ width: "100%", border: "none", outline: "none", fontSize: 16, lineHeight: 1.5, resize: "none", fontFamily: "system-ui", color: "#111827", background: "transparent", boxSizing: "border-box" }} />
+        </div>
+
+        {/* Résumé de la config — cartes cliquables */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 16 }}>
+          {[
+            { key: "framework", emoji: fw?.emoji || "🎯", label: fw?.label?.split(" ")[0] || "Cadre" },
+            { key: "personas", emoji: "🎭", label: `${activePersonas.length} persona${activePersonas.length > 1 ? "s" : ""}` },
+            { key: "docs", emoji: "📎", label: config.docs?.length > 0 ? `${config.docs.length} doc${config.docs.length > 1 ? "s" : ""}` : "Documents" },
+          ].map(item => (
+            <button key={item.key} onClick={() => setDrawerOpen(true)}
+              style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "10px 8px", background: "#fff", border: "1.5px solid #E5E7EB", borderRadius: 10, cursor: "pointer" }}>
+              <span style={{ fontSize: 20 }}>{item.emoji}</span>
+              <span style={{ fontSize: 11, color: "#6B7280", fontWeight: 600 }}>{item.label}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Options rapides */}
+        <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+          <button onClick={() => setDrawerOpen(true)} style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, padding: "8px 12px", background: "#fff", border: "1.5px solid #E5E7EB", borderRadius: 10, cursor: "pointer", fontSize: 12, color: "#6B7280" }}>
+            {config.useGroups ? `🗂️ ${(config.groups || []).length} grappes` : "🗂️ Grappes"}
+          </button>
+          <button onClick={() => setConfig(prev => ({ ...prev, webSearchEnabled: !prev.webSearchEnabled }))}
+            style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, padding: "8px 12px", background: config.webSearchEnabled ? "#EFF6FF" : "#fff", border: `1.5px solid ${config.webSearchEnabled ? "#BFDBFE" : "#E5E7EB"}`, borderRadius: 10, cursor: "pointer", fontSize: 12, color: config.webSearchEnabled ? "#2563EB" : "#6B7280" }}>
+            🌐 Web search {config.webSearchEnabled ? "ON" : "OFF"}
+          </button>
+          <button onClick={() => setDrawerOpen(true)}
+            style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, padding: "8px 12px", background: "#fff", border: "1.5px solid #E5E7EB", borderRadius: 10, cursor: "pointer", fontSize: 12, color: "#6B7280" }}>
+            ⚙️ Options
+          </button>
+        </div>
+
+        <button onClick={() => onStart(config)} disabled={!canStart}
+          style={{ width: "100%", background: canStart ? "#111827" : "#E5E7EB", color: canStart ? "#fff" : "#9CA3AF", border: "none", borderRadius: 12, padding: "15px", fontSize: 16, fontWeight: 700, cursor: canStart ? "pointer" : "not-allowed" }}>
+          Ouvrir la table →
+        </button>
+
+        <div style={{ marginTop: 16, fontSize: 12, color: "#D1D5DB" }}>
+          <a href={`mailto:${FEEDBACK_EMAIL}`} style={{ color: "#9CA3AF", textDecoration: "none" }}>feedback@table-virtuelle.app</a>
+        </div>
+      </div>
+
+      <SettingsDrawer
+        isOpen={drawerOpen} onClose={() => setDrawerOpen(false)}
+        config={config} onConfigChange={setConfig}
+        isMobile={isMobile} inDebate={false}
+      />
+    </div>
+  );
+}
+
 // ─── DEBATE SCREEN ────────────────────────────────────────────────────────────
 function DebateScreen({ table, onUpdate, onClose }) {
+  const isMobile = useIsMobile();
   const [messages, setMessages] = useState(table.messages || []);
-  const [docs, setDocs] = useState(table.docs || []);
-  const [groups, setGroups] = useState(table.groups || []);
+  const [config, setConfig] = useState({
+    topic: table.topic, frameworkId: table.frameworkId, customPersonas: table.customPersonas || [],
+    humanParticipants: table.humanParticipants || [], docs: table.docs || [],
+    webSearchEnabled: table.webSearchEnabled || false, disabledPersonas: table.disabledPersonas || [],
+    activeDisciplines: table.activeDisciplines || [], activeTransversals: table.activeTransversals || [],
+    groups: table.groups || [], useGroups: table.useGroups || false, plenaryFirst: table.plenaryFirst || false,
+  });
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [input, setInput] = useState(""), [isRunning, setIsRunning] = useState(false), [isSynthesizing, setIsSynthesizing] = useState(false);
-  const abortRef = useRef(null);
-  const stoppedRef = useRef(false);
-
-  const handleStop = () => {
-    stoppedRef.current = true;
-    if (abortRef.current) { abortRef.current.abort(); abortRef.current = null; }
-    setMessages(prev => prev.map(m => m.streaming
-      ? { ...m, streaming: false, text: m.text || "[Arrêté]" }
-      : m
-    ));
-    setIsRunning(false);
-    setIsSynthesizing(false);
-  };
   const [status, setStatus] = useState(table.status || "open");
-  const initialPhase = table.sessionPhase || (table.useGroups && table.groups?.length > 0
-    ? (table.plenaryFirst ? "plenary" : "groups")
-    : "plenary");
-  const initialGroup = table.plenaryFirst && table.groups?.length > 0
-    ? "plenary"
-    : (table.groups?.[0]?.id || "plenary");
-  const [sessionPhase, setSessionPhase] = useState(initialPhase);
-  const [activeGroupId, setActiveGroupId] = useState(initialGroup);
-  const [globalSearch, setGlobalSearch] = useState(table.webSearchEnabled || false);
-  const [disabledPersonas, setDisabledPersonas] = useState(new Set(table.disabledPersonas || []));
-  const [audioEnabled, setAudioEnabled] = useState(false), [speakingMsgId, setSpeakingMsgId] = useState(null);
-  const [isListening, setIsListening] = useState(false), [interimTranscript, setInterimTranscript] = useState("");
-  const [activeSpeaker, setActiveSpeaker] = useState(table.humanParticipants?.[0]?.id || null);
+
+  // Phase & navigation entre grappes/plénière
+  const getInitialPhase = () => {
+    if (table.sessionPhase) return table.sessionPhase;
+    if (table.useGroups && (table.groups || []).length > 0) return table.plenaryFirst ? "plenary" : "groups";
+    return "plenary";
+  };
+  const getInitialGroup = () => {
+    if (table.sessionPhase === "plenary") return "plenary";
+    if (table.plenaryFirst && (table.groups || []).length > 0) return "plenary";
+    return (table.groups || [])[0]?.id || "plenary";
+  };
+  const [sessionPhase, setSessionPhase] = useState(getInitialPhase);
+  const [activeGroupId, setActiveGroupId] = useState(getInitialGroup);
+
   const [plenaryReady, setPlenaryReady] = useState(false);
   const [isCheckingPlenary, setIsCheckingPlenary] = useState(false);
-  const bottomRef = useRef(), fileRef = useRef();
+  const [audioEnabled, setAudioEnabled] = useState(false);
+  const [speakingMsgId, setSpeakingMsgId] = useState(null);
+  const [isListening, setIsListening] = useState(false);
+  const [interimTranscript, setInterimTranscript] = useState("");
+  const [activeSpeaker, setActiveSpeaker] = useState((table.humanParticipants || [])[0]?.id || null);
 
-  const framework = FRAMEWORKS[table.frameworkId];
-  const basePersonas = table.frameworkId === "artistique" ? buildArtisticPersonas(table.activeDisciplines || [], table.activeTransversals || []) : (framework?.personas || []);
-  const allAiPersonas = [...basePersonas, ...(table.customPersonas || [])];
-  const humanParticipants = table.humanParticipants || [];
+  const abortRef = useRef(null);
+  const stoppedRef = useRef(false);
+  const bottomRef = useRef();
+  const fileRef = useRef();
+
+  // Derived state from config
+  const allAiPersonas = getAllPersonas({ ...table, ...config });
+  const humanParticipants = config.humanParticipants || [];
+  const groups = config.groups || [];
+  const hasGroups = config.useGroups && groups.length > 0;
   const isMixedTable = humanParticipants.length > 0;
-  const hasGroups = table.useGroups && groups.length > 0;
 
   const getPersonasForGroup = (gid) => {
-    if (!hasGroups || gid === "plenary") return allAiPersonas.filter(p => !disabledPersonas.has(p.id));
+    if (!hasGroups || gid === "plenary") return allAiPersonas.filter(p => !(config.disabledPersonas || []).includes(p.id));
     const g = groups.find(x => x.id === gid);
     if (!g) return [];
-    return allAiPersonas.filter(p => g.personaIds.includes(p.id) && !disabledPersonas.has(p.id));
+    return allAiPersonas.filter(p => g.personaIds.includes(p.id) && !(config.disabledPersonas || []).includes(p.id));
   };
   const activePersonas = getPersonasForGroup(activeGroupId);
   const currentGroup = groups.find(g => g.id === activeGroupId);
+  const activeSpeakerObj = humanParticipants.find(h => h.id === activeSpeaker);
+
+  // Sync config changes back to table
+  useEffect(() => {
+    onUpdate({ ...table, ...config, messages, status, sessionPhase, disabledPersonas: config.disabledPersonas });
+  }, [messages, config, status, sessionPhase]);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, activeGroupId]);
-  useEffect(() => { onUpdate({ ...table, messages, docs, groups, status, sessionPhase, webSearchEnabled: globalSearch, disabledPersonas: [...disabledPersonas] }); }, [messages, docs, groups, status, sessionPhase, globalSearch, disabledPersonas]);
 
+  // Visible messages for current context
   const visibleMessages = hasGroups && activeGroupId !== "plenary"
     ? messages.filter(m => m.groupId === activeGroupId)
     : messages;
 
+  // Build context string for API calls
   const buildContext = (msgs, gid) => {
-    const relevant = (gid && gid !== "plenary") ? msgs.filter(m => m.groupId === gid || m.role === "plenary_start") : msgs;
+    const relevant = (gid && gid !== "plenary")
+      ? msgs.filter(m => m.groupId === gid || m.role === "plenary_start" || m.role === "group_synthesis")
+      : msgs;
     const history = relevant.map(m => {
       if (m.role === "user") return `[Animateur] : ${m.text}`;
       if (m.role === "human") { const h = humanParticipants.find(x => x.id === m.speakerId); return `[${h?.name || "Participant"} — Humain] : ${m.text}`; }
@@ -1037,29 +1187,38 @@ function DebateScreen({ table, onUpdate, onClose }) {
       const p = allAiPersonas.find(x => x.id === m.personaId);
       return `[${p?.name || m.personaId} — IA] : ${m.text}`;
     }).join("\n\n");
-    const gName = gid && gid !== "plenary" ? groups.find(g => g.id === gid)?.name : null;
-    const docNote = docs.length > 0 ? `\nDocuments : ${docs.map(d => d.name).join(", ")}` : "";
-    return `Sujet : "${table.topic}"\nFramework : ${framework?.label || "Libre"}${gName ? `\nGrappe : ${gName}` : ""}${docNote}\n\n${history || "(début du débat)"}`;
+    const gName = (gid && gid !== "plenary") ? groups.find(g => g.id === gid)?.name : null;
+    const docNote = (config.docs || []).length > 0 ? `\nDocuments : ${config.docs.map(d => d.name).join(", ")}` : "";
+    // Include plenary context when in a group (crucial for plenaryFirst flow)
+    const plenaryMsgs = (gid && gid !== "plenary") ? msgs.filter(m => !m.groupId && m.role !== "plenary_start" && m.role !== "group_synthesis") : [];
+    const plenaryCtx = plenaryMsgs.length > 0 ? `\n\n[Contexte plénière]\n${plenaryMsgs.map(m => {
+      if (m.role === "user") return `[Animateur] : ${m.text}`;
+      const p = allAiPersonas.find(x => x.id === m.personaId);
+      return `[${p?.name || m.personaId}] : ${m.text}`;
+    }).join("\n\n")}` : "";
+    return `Sujet : "${config.topic}"\nFramework : ${FRAMEWORKS[config.frameworkId]?.label || "Libre"}${gName ? `\nGrappe : ${gName}` : ""}${docNote}${plenaryCtx}\n\n${history || "(début du débat)"}`;
   };
 
+  // Stream a single persona response
   const streamPersona = async (persona, userMsg, currentMsgs, gid, signal) => {
     const msgId = `${Date.now()}_${Math.random()}`, searches = [];
     setMessages(prev => [...prev, { id: msgId, role: "persona", personaId: persona.id, groupId: gid !== "plenary" ? gid : undefined, text: "", streaming: true, searching: false, searches: [] }]);
     const context = buildContext(currentMsgs, gid);
-    const gName = gid && gid !== "plenary" ? groups.find(g => g.id === gid)?.name : null;
+    const gName = (gid && gid !== "plenary") ? groups.find(g => g.id === gid)?.name : null;
     const sysPrompt = persona.systemPrompt + (gName ? `\nTu parles au sein de la grappe "${gName}".` : "") + "\n\nSi documents fournis, cite-les 📄 [Documents]. Analyse : 💭 [Analyse].";
-    const userContent = buildUserContent(`${context}\n\n---\nC'est ton tour en réaction à : "${userMsg}"\n3-4 phrases dans ton rôle.`, docs);
+    const userContent = buildUserContent(`${context}\n\n---\nC'est ton tour en réaction à : "${userMsg}"\n3-4 phrases dans ton rôle.`, config.docs || []);
     let fullText = "";
     try {
-      await streamPersonaCall(sysPrompt, [{ role: "user", content: userContent }], globalSearch,
+      await streamPersonaCall(sysPrompt, [{ role: "user", content: userContent }], config.webSearchEnabled,
         chunk => { fullText += chunk; setMessages(prev => prev.map(m => m.id === msgId ? { ...m, text: fullText, searching: false } : m)); },
         () => setMessages(prev => prev.map(m => m.id === msgId ? { ...m, searching: true } : m)),
         query => { searches.push(query); setMessages(prev => prev.map(m => m.id === msgId ? { ...m, searching: false, searches: [...searches] } : m)); },
         signal
       );
     } catch (err) {
-      setMessages(prev => prev.map(m => m.id === msgId ? { ...m, streaming: false, error: err.message } : m));
-      return { id: msgId, role: "persona", personaId: persona.id, text: "", streaming: false, error: err.message };
+      if (err.name !== "AbortError") setMessages(prev => prev.map(m => m.id === msgId ? { ...m, streaming: false, error: err.message } : m));
+      else setMessages(prev => prev.map(m => m.id === msgId ? { ...m, streaming: false, text: fullText || "[Arrêté]" } : m));
+      return { id: msgId, role: "persona", personaId: persona.id, text: fullText, streaming: false };
     }
     const finalMsg = { id: msgId, role: "persona", personaId: persona.id, groupId: gid !== "plenary" ? gid : undefined, text: fullText, streaming: false, searching: false, searches };
     setMessages(prev => prev.map(m => m.id === msgId ? finalMsg : m));
@@ -1067,32 +1226,32 @@ function DebateScreen({ table, onUpdate, onClose }) {
     return finalMsg;
   };
 
+  const handleStop = () => {
+    stoppedRef.current = true;
+    if (abortRef.current) { abortRef.current.abort(); abortRef.current = null; }
+    setMessages(prev => prev.map(m => m.streaming ? { ...m, streaming: false, text: m.text || "[Arrêté]" } : m));
+    setIsRunning(false); setIsSynthesizing(false);
+  };
+
   const handleSend = async (overrideText) => {
     const userText = (overrideText || input).trim(); if (!userText || isRunning) return;
     setInput(""); setInterimTranscript(""); setIsRunning(true);
     stoppedRef.current = false;
-    const controller = new AbortController();
-    abortRef.current = controller;
+    const controller = new AbortController(); abortRef.current = controller;
     const signal = controller.signal;
     const gid = activeGroupId;
     const userMsg = { id: `msg_${Date.now()}`, role: isMixedTable ? "human" : "user", speakerId: activeSpeaker, groupId: gid !== "plenary" ? gid : undefined, text: userText };
-    const mentionMatch = userText.match(/@([^\s]+)/);
-    const mentionedName = mentionMatch?.[1]?.toLowerCase();
-    const targetPersona = mentionedName ? activePersonas.find(p => p.name.toLowerCase().includes(mentionedName) || p.id.includes(mentionedName)) : null;
     const updatedMsgs = [...messages, userMsg]; setMessages(updatedMsgs);
+
     try {
+      const mentionMatch = userText.match(/@([^\s]+)/);
+      const mentionedName = mentionMatch?.[1]?.toLowerCase();
+      // Fix Challenger: @mention = only that persona responds, no cascade
+      const targetPersona = mentionedName ? activePersonas.find(p => p.name.toLowerCase().includes(mentionedName) || p.id.includes(mentionedName)) : null;
+
       if (targetPersona) {
-        const r1 = await streamPersona(targetPersona, userText, updatedMsgs, gid, signal);
-        const afterTarget = [...updatedMsgs, r1];
-        const raw = await callClaudeSimple("Réponds UNIQUEMENT avec un tableau JSON d'IDs (0-2 max). Ex: [\"noir\"] ou []",
-          `Débat :\n${buildContext(afterTarget, gid)}\nDisponibles (sauf ${targetPersona.id}) : ${activePersonas.filter(p => p.id !== targetPersona.id).map(p => `${p.id}(${p.role})`).join(", ")}\nQui réagit ? 0-2 max.`);
-        let ids = []; try { ids = JSON.parse(raw.replace(/```json|```/g, "").trim()); } catch {}
-        let cur = afterTarget;
-        for (const pid of ids.slice(0, 2)) {
-          if (stoppedRef.current) break;
-          const p = activePersonas.find(x => x.id === pid);
-          if (p) { const r = await streamPersona(p, userText, cur, gid, signal); cur = [...cur, r]; if (!stoppedRef.current) await new Promise(res => setTimeout(res, 300)); }
-        }
+        // Only the targeted persona responds — no cascade
+        await streamPersona(targetPersona, userText, updatedMsgs, gid, signal);
       } else {
         let cur = updatedMsgs;
         for (const persona of activePersonas) {
@@ -1102,17 +1261,17 @@ function DebateScreen({ table, onUpdate, onClose }) {
           if (!stoppedRef.current) await new Promise(res => setTimeout(res, 300));
         }
       }
-    } catch (err) { console.error(err); }
-    abortRef.current = null;
-    setIsRunning(false);
+    } catch (err) { if (err.name !== "AbortError") console.error(err); }
 
-    // Check plenary readiness after some exchanges
-    if (hasGroups && !plenaryReady && !isCheckingPlenary) {
+    abortRef.current = null; setIsRunning(false);
+
+    // Check plenary readiness
+    if (hasGroups && !plenaryReady && !isCheckingPlenary && activeGroupId !== "plenary") {
       const groupMsgs = messages.filter(m => m.groupId);
       if (groupMsgs.length >= groups.length * 3) {
         setIsCheckingPlenary(true);
         const raw = await callClaudeSimple("Réponds UNIQUEMENT par 'oui' ou 'non'.",
-          `Sujet : "${table.topic}". Grappes qui ont débattu : ${groups.map(g => g.name).join(", ")}.\nNombre d'échanges par grappe : ${groups.map(g => messages.filter(m => m.groupId === g.id).length).join(", ")}.\nEst-ce suffisant pour passer en plénière ?`);
+          `Sujet : "${config.topic}". Grappes : ${groups.map(g => g.name).join(", ")}. Échanges par grappe : ${groups.map(g => messages.filter(m => m.groupId === g.id).length).join(", ")}. Suffisant pour passer en plénière ?`);
         if (raw.toLowerCase().trim().startsWith("oui")) setPlenaryReady(true);
         setIsCheckingPlenary(false);
       }
@@ -1120,10 +1279,8 @@ function DebateScreen({ table, onUpdate, onClose }) {
   };
 
   const startPlenary = async () => {
-    setIsRunning(true);
-    stoppedRef.current = false;
-    const controller = new AbortController();
-    abortRef.current = controller;
+    setIsRunning(true); stoppedRef.current = false;
+    const controller = new AbortController(); abortRef.current = controller;
     const signal = controller.signal;
     setMessages(prev => [...prev, { id: `plenary_${Date.now()}`, role: "plenary_start", text: "" }]);
     setActiveGroupId("plenary"); setSessionPhase("plenary");
@@ -1137,32 +1294,30 @@ function DebateScreen({ table, onUpdate, onClose }) {
       let fullText = "";
       try {
         await streamAPI({ model: "claude-sonnet-4-6", max_tokens: 600,
-          system: `Tu es le Porte-parole de la grappe "${group.name}" en séance plénière. Présente la position et les tensions internes de ton groupe. Style : clair, représentatif. 4-5 phrases.`,
-          messages: [{ role: "user", content: `Échanges de la grappe "${group.name}" :\n\n${ctx}\n\nPrésente la position de ton groupe en plénière.` }]
+          system: `Tu es le Porte-parole de la grappe "${group.name}" en séance plénière. Présente la position et les tensions internes de ton groupe. 4-5 phrases.`,
+          messages: [{ role: "user", content: `Échanges de la grappe :\n\n${ctx}\n\nPrésente la position en plénière.` }]
         }, chunk => { fullText += chunk; setMessages(prev => prev.map(m => m.id === msgId ? { ...m, text: fullText } : m)); }, signal);
       } catch {}
       setMessages(prev => prev.map(m => m.id === msgId ? { ...m, streaming: false } : m));
       await new Promise(res => setTimeout(res, 500));
     }
-    abortRef.current = null;
-    setIsRunning(false); setPlenaryReady(false);
+    abortRef.current = null; setIsRunning(false); setPlenaryReady(false);
   };
 
   const returnToGroup = (gid, withContext) => {
-    if (!withContext) setMessages(prev => prev.filter(m => m.groupId !== gid || m.role === "plenary_start"));
+    if (!withContext) setMessages(prev => prev.filter(m => m.groupId !== gid));
     setActiveGroupId(gid); setSessionPhase("groups");
   };
 
   const addJokerGroup = () => {
-    const idx = groups.length;
-    const ng = { id: `joker_${Date.now()}`, name: `Grappe Joker`, color: GROUP_COLORS[idx % GROUP_COLORS.length], personaIds: allAiPersonas.filter(p => !disabledPersonas.has(p.id)).map(p => p.id), isJoker: true };
-    setGroups(prev => [...prev, ng]); setActiveGroupId(ng.id); setSessionPhase("groups");
+    const ng = { id: `joker_${Date.now()}`, name: "Grappe Joker", color: GROUP_COLORS[groups.length % GROUP_COLORS.length], personaIds: allAiPersonas.filter(p => !(config.disabledPersonas || []).includes(p.id)).map(p => p.id), isJoker: true };
+    setConfig(prev => ({ ...prev, groups: [...prev.groups, ng], useGroups: true }));
+    setActiveGroupId(ng.id); setSessionPhase("groups");
   };
 
   const handleSynthesize = async () => {
-    setIsSynthesizing(true);
-    const controller = new AbortController();
-    abortRef.current = controller;
+    setIsSynthesizing(true); stoppedRef.current = false;
+    const controller = new AbortController(); abortRef.current = controller;
     const msgId = `sec_${Date.now()}`;
     setMessages(prev => [...prev, { id: msgId, role: "secretary", text: "", streaming: true }]);
     let fullText = "";
@@ -1172,11 +1327,8 @@ function DebateScreen({ table, onUpdate, onClose }) {
       }, chunk => { fullText += chunk; setMessages(prev => prev.map(m => m.id === msgId ? { ...m, text: fullText } : m)); }, controller.signal);
     } catch (err) { if (err.name !== "AbortError") console.error(err); }
     setMessages(prev => prev.map(m => m.id === msgId ? { ...m, streaming: false } : m));
-    abortRef.current = null;
-    setStatus("synthesized"); setIsSynthesizing(false);
+    abortRef.current = null; setStatus("synthesized"); setIsSynthesizing(false);
   };
-
-  const handleFiles = async (files) => { const r = await Promise.all(Array.from(files).map(fileToContext)); setDocs(prev => [...prev, ...r]); };
 
   const toggleVoice = () => {
     if (isListening) { audioEngine.stopListening(); setIsListening(false); return; }
@@ -1193,67 +1345,64 @@ function DebateScreen({ table, onUpdate, onClose }) {
     audioEngine.speak(msg.text, persona.voice, () => setSpeakingMsgId(null));
   };
 
-  const activeSpeakerObj = humanParticipants.find(h => h.id === activeSpeaker);
-
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
-      {/* Header */}
-      <div style={{ borderBottom: "1px solid #F3F4F6", padding: "10px 14px", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-        <button onClick={onClose} style={{ background: "none", border: "none", color: "#6B7280", cursor: "pointer", fontSize: 18, padding: 0 }}>←</button>
+    <div style={{ display: "flex", flexDirection: "column", height: "100vh", fontFamily: "system-ui, -apple-system, sans-serif" }}>
+      {/* ── Header ── */}
+      <div style={{ borderBottom: "1px solid #F3F4F6", padding: "10px 14px", display: "flex", alignItems: "center", gap: 8, flexShrink: 0, background: "#fff" }}>
+        <button onClick={onClose} style={{ background: "none", border: "none", color: "#6B7280", cursor: "pointer", fontSize: 20, padding: 0, lineHeight: 1 }}>←</button>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: 13, color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{table.topic}</div>
+          <div style={{ fontWeight: 700, fontSize: 13, color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{config.topic}</div>
           <div style={{ fontSize: 11, color: "#9CA3AF" }}>
-            {framework?.label || "Libre"}{hasGroups && ` · ${groups.length} grappes`}{sessionPhase === "plenary" && " · 🏛️ Plénière"} · {status === "synthesized" ? "✅ Synthétisée" : "🟢 En cours"}
+            {FRAMEWORKS[config.frameworkId]?.label || "Libre"}
+            {hasGroups && ` · ${groups.length} grappes`}
+            {sessionPhase === "plenary" && " · 🏛️ Plénière"}
+            {" · "}{status === "synthesized" ? "✅" : "🟢"}
           </div>
         </div>
-        <button onClick={() => { setAudioEnabled(v => !v); if (audioEnabled) { audioEngine.stop(); setSpeakingMsgId(null); } }} style={{ width: 34, height: 18, borderRadius: 9, border: "none", cursor: "pointer", background: audioEnabled ? "#7C3AED" : "#CBD5E1", position: "relative" }}><span style={{ position: "absolute", top: 1, width: 16, height: 16, borderRadius: "50%", background: "#fff", left: audioEnabled ? 16 : 1, transition: "left 0.2s" }} /></button>
-        <span style={{ fontSize: 11, color: audioEnabled ? "#7C3AED" : "#9CA3AF" }}>🔊</span>
-        <button onClick={() => setGlobalSearch(v => !v)} style={{ width: 34, height: 18, borderRadius: 9, border: "none", cursor: "pointer", background: globalSearch ? "#0369A1" : "#CBD5E1", position: "relative" }}><span style={{ position: "absolute", top: 1, width: 16, height: 16, borderRadius: "50%", background: "#fff", left: globalSearch ? 16 : 1, transition: "left 0.2s" }} /></button>
-        <span style={{ fontSize: 11, color: globalSearch ? "#0369A1" : "#9CA3AF" }}>🌐</span>
-        <button onClick={() => fileRef.current.click()} style={{ background: "none", border: "1px solid #E5E7EB", borderRadius: 6, padding: "3px 8px", fontSize: 12, color: "#6B7280", cursor: "pointer" }}>📎+</button>
-        <input ref={fileRef} type="file" multiple accept=".pdf,.txt,.md,.csv,.jpg,.jpeg,.png,.webp" style={{ display: "none" }} onChange={e => handleFiles(e.target.files)} />
+        {/* Header actions */}
+        <button onClick={() => setSettingsOpen(true)} title="Configuration" style={{ background: "none", border: "1px solid #E5E7EB", borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontSize: 16 }}>⚙️</button>
+        <button onClick={() => { setAudioEnabled(v => !v); if (audioEnabled) { audioEngine.stop(); setSpeakingMsgId(null); } }}
+          style={{ background: audioEnabled ? "#F5F3FF" : "none", border: `1px solid ${audioEnabled ? "#DDD6FE" : "#E5E7EB"}`, borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontSize: 13, color: audioEnabled ? "#7C3AED" : "#6B7280" }}>🔊</button>
+        <button onClick={() => { const ref = useRef(); ref.current?.click(); }} style={{ display: "none" }} />
+        <button onClick={() => fileRef.current.click()} style={{ background: "none", border: "1px solid #E5E7EB", borderRadius: 8, padding: "5px 10px", fontSize: 13, color: "#6B7280", cursor: "pointer" }}>📎</button>
+        <input ref={fileRef} type="file" multiple accept=".pdf,.txt,.md,.csv,.jpg,.jpeg,.png,.webp" style={{ display: "none" }}
+          onChange={async e => { const r = await Promise.all(Array.from(e.target.files).map(fileToContext)); setConfig(prev => ({ ...prev, docs: [...prev.docs, ...r] })); }} />
       </div>
 
-      {hasGroups && <GroupTabBar groups={groups} activeGroupId={activeGroupId} setActiveGroupId={setActiveGroupId} plenaryReady={plenaryReady} onStartPlenary={startPlenary} sessionPhase={sessionPhase} />}
+      {/* ── Group tabs ── */}
+      {hasGroups && (
+        <GroupTabBar groups={groups} activeGroupId={activeGroupId} setActiveGroupId={setActiveGroupId}
+          plenaryReady={plenaryReady} onStartPlenary={startPlenary} sessionPhase={sessionPhase} />
+      )}
 
-      {/* Messages */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "14px" }}>
+      {/* ── Messages ── */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px" }}>
         {/* Persona chips */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 12, paddingBottom: 10, borderBottom: "1px solid #F3F4F6" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 10, paddingBottom: 10, borderBottom: "1px solid #F3F4F6" }}>
           {activePersonas.map(p => (
-            <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 3, background: p.bg, border: `1.5px solid ${p.border}`, borderRadius: 20, padding: "3px 8px" }}>
-              <button onClick={() => setInput(`@${p.name} `)} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", alignItems: "center", gap: 3 }}>
-                <span style={{ fontSize: 12 }}>{p.emoji}</span><span style={{ fontSize: 11, fontWeight: 600, color: p.color }}>{p.name}</span>
-              </button>
-            </div>
+            <button key={p.id} onClick={() => setInput(`@${p.name} `)}
+              style={{ display: "flex", alignItems: "center", gap: 3, background: p.bg, border: `1px solid ${p.border}`, borderRadius: 16, padding: "2px 8px", cursor: "pointer" }}>
+              <span style={{ fontSize: 11 }}>{p.emoji}</span>
+              <span style={{ fontSize: 11, fontWeight: 600, color: p.color }}>{p.name}</span>
+            </button>
           ))}
           {humanParticipants.map(h => (
-            <div key={h.id} style={{ display: "flex", alignItems: "center", gap: 3, background: "#F0FDF4", border: `1.5px solid ${h.color}44`, borderRadius: 20, padding: "3px 8px" }}>
-              <span style={{ fontSize: 12 }}>{h.emoji}</span><span style={{ fontSize: 11, fontWeight: 700, color: h.color }}>{h.name}</span>
+            <div key={h.id} style={{ display: "flex", alignItems: "center", gap: 3, background: "#F0FDF4", border: `1px solid ${h.color}44`, borderRadius: 16, padding: "2px 8px" }}>
+              <span style={{ fontSize: 11 }}>{h.emoji}</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: h.color }}>{h.name}</span>
             </div>
           ))}
         </div>
 
-        {/* Éclater en grappes — depuis plénière vers grappes */}
-        {sessionPhase === "plenary" && hasGroups && table.plenaryFirst && activeGroupId === "plenary" && (
-          <div style={{ marginBottom: 10, display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "#F5F3FF", border: "1px solid #DDD6FE", borderRadius: 10 }}>
-            <span style={{ fontSize: 13, color: "#7C3AED", flex: 1 }}>La table a débattu en plénière — prêt à éclater en grappes ?</span>
-            <button onClick={() => { setSessionPhase("groups"); setActiveGroupId(groups[0]?.id || "plenary"); }}
-              style={{ fontSize: 12, padding: "4px 14px", borderRadius: 16, border: "none", background: "#7C3AED", color: "#fff", fontWeight: 700, cursor: "pointer" }}>
-              Éclater en grappes →
-            </button>
-          </div>
-        )}
-
-        {/* Plenary controls */}
-        {sessionPhase === "plenary" && groups.length > 0 && (
-          <div style={{ marginBottom: 12, padding: "8px 12px", background: "#F5F3FF", border: "1px solid #DDD6FE", borderRadius: 10 }}>
+        {/* Plenary → groups or groups → plenary controls */}
+        {sessionPhase === "plenary" && hasGroups && (
+          <div style={{ marginBottom: 10, padding: "8px 12px", background: "#F5F3FF", border: "1px solid #DDD6FE", borderRadius: 10 }}>
             <div style={{ fontSize: 11, color: "#7C3AED", fontWeight: 700, marginBottom: 6 }}>Retour en grappe :</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               {groups.map(g => (
                 <div key={g.id} style={{ display: "flex", gap: 4 }}>
                   <button onClick={() => returnToGroup(g.id, true)} style={{ fontSize: 11, padding: "3px 10px", borderRadius: 12, border: `1px solid ${g.color}44`, background: "#fff", color: g.color, cursor: "pointer" }}>↩ {g.name}</button>
-                  <button onClick={() => returnToGroup(g.id, false)} title="Esprit neuf" style={{ fontSize: 11, padding: "3px 8px", borderRadius: 12, border: `1px solid ${g.color}44`, background: g.color + "10", color: g.color, cursor: "pointer" }}>🔄</button>
+                  <button onClick={() => returnToGroup(g.id, false)} title="Esprit neuf — sans contexte plénière" style={{ fontSize: 11, padding: "3px 8px", borderRadius: 12, border: `1px solid ${g.color}44`, background: g.color + "10", color: g.color, cursor: "pointer" }}>🔄</button>
                 </div>
               ))}
               <button onClick={addJokerGroup} style={{ fontSize: 11, padding: "3px 10px", borderRadius: 12, border: "1.5px dashed #D1D5DB", background: "#FAFAFA", color: "#6B7280", cursor: "pointer" }}>+ Grappe joker</button>
@@ -1261,87 +1410,104 @@ function DebateScreen({ table, onUpdate, onClose }) {
           </div>
         )}
 
-        {docs.length > 0 && <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 10 }}>{docs.map((doc, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: 4, background: "#F3F4F6", border: "1px solid #E5E7EB", borderRadius: 6, padding: "2px 8px", fontSize: 11 }}>
-            <span>{doc.type === "pdf" ? "📄" : doc.type === "image" ? "🖼️" : "📝"}</span>
-            <span style={{ color: "#374151", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.name}</span>
-            <button onClick={() => setDocs(prev => prev.filter((_, j) => j !== i))} style={{ background: "none", border: "none", color: "#9CA3AF", cursor: "pointer", padding: 0 }}>×</button>
+        {/* Éclater en grappes depuis plénière (plenaryFirst) */}
+        {sessionPhase === "plenary" && hasGroups && config.plenaryFirst && activeGroupId === "plenary" && messages.filter(m => !m.groupId).length >= 2 && (
+          <div style={{ marginBottom: 10, display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "#FFFBEB", border: "1px solid #FDE68A", borderRadius: 10 }}>
+            <span style={{ fontSize: 12, color: "#92400E", flex: 1 }}>Prêt à éclater en grappes ?</span>
+            <button onClick={() => { setSessionPhase("groups"); setActiveGroupId(groups[0]?.id || "plenary"); }}
+              style={{ fontSize: 12, padding: "4px 14px", borderRadius: 16, border: "none", background: "#D97706", color: "#fff", fontWeight: 700, cursor: "pointer" }}>
+              Éclater en grappes →
+            </button>
           </div>
-        ))}</div>}
+        )}
 
+        {/* Empty state */}
         {visibleMessages.length === 0 && (
           <div style={{ textAlign: "center", color: "#9CA3AF", fontSize: 13, padding: "40px 0" }}>
             {hasGroups && activeGroupId !== "plenary"
-              ? `Grappe "${currentGroup?.name}" prête.`
-              : table.plenaryFirst && hasGroups
-                ? "Plénière ouverte — posez le sujet à toute la table avant d'éclater en grappes."
+              ? `Grappe "${currentGroup?.name}" — lancez le débat.`
+              : config.plenaryFirst && hasGroups
+                ? "Plénière — posez le sujet à toute la table avant d'éclater en grappes."
                 : "La table est ouverte."}
             <br /><br />
-            <button onClick={() => handleSend(hasGroups && activeGroupId !== "plenary" ? `Grappe ${currentGroup?.name} — chacun présente sa position.` : "Chacun présente sa position initiale sur le sujet.")}
-              style={{ background: "#111827", color: "#fff", border: "none", borderRadius: 8, padding: "8px 16px", fontSize: 13, cursor: "pointer" }}>
+            <button onClick={() => handleSend(
+              hasGroups && activeGroupId !== "plenary"
+                ? `Grappe ${currentGroup?.name} — chacun présente sa position sur le sujet.`
+                : "Chacun présente sa position initiale sur le sujet."
+            )} style={{ background: "#111827", color: "#fff", border: "none", borderRadius: 8, padding: "8px 16px", fontSize: 13, cursor: "pointer" }}>
               Lancer le premier tour →
             </button>
           </div>
         )}
 
-        {visibleMessages.map((msg, i) => <MessageBubble key={msg.id || i} msg={msg} aiPersonas={allAiPersonas} humanParticipants={humanParticipants} groups={groups} onChallenge={p => setInput(`@${p.name} `)} onSpeak={handleSpeak} isSpeaking={speakingMsgId === msg.id} />)}
+        {visibleMessages.map((msg, i) => (
+          <MessageBubble key={msg.id || i} msg={msg} aiPersonas={allAiPersonas} humanParticipants={humanParticipants} groups={groups}
+            onChallenge={p => setInput(`@${p.name} `)} onSpeak={handleSpeak} isSpeaking={speakingMsgId === msg.id} />
+        ))}
 
         {(isRunning || isSynthesizing) && !messages.some(m => m.streaming) && (
-          <div style={{ fontSize: 12, color: "#9CA3AF", animation: "pulse 1.5s infinite" }}>{isSynthesizing ? "📋 Le secrétaire rédige…" : "💬 En cours…"}</div>
+          <div style={{ fontSize: 12, color: "#9CA3AF", animation: "pulse 1.5s infinite" }}>{isSynthesizing ? "📋 Rédaction en cours…" : "💬 En cours…"}</div>
         )}
         <div ref={bottomRef} />
       </div>
 
+      {/* ── Synthesized banner ── */}
       {status === "synthesized" && (
-        <div style={{ background: "#F0FDF4", borderTop: "1px solid #BBF7D0", borderBottom: "1px solid #BBF7D0", padding: "7px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ background: "#F0FDF4", borderTop: "1px solid #BBF7D0", padding: "7px 14px", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
           <span style={{ fontSize: 12, color: "#059669", flex: 1 }}>✅ Table synthétisée</span>
           <button onClick={() => setStatus("open")} style={{ background: "#059669", color: "#fff", border: "none", borderRadius: 6, padding: "3px 12px", fontSize: 12, cursor: "pointer", fontWeight: 700 }}>Rouvrir</button>
         </div>
       )}
 
-      {/* Input */}
-      <div style={{ borderTop: "1px solid #F3F4F6", padding: "10px 14px", flexShrink: 0 }}>
+      {/* ── Input ── */}
+      <div style={{ borderTop: "1px solid #F3F4F6", padding: "10px 14px", flexShrink: 0, background: "#fff" }}>
+        {/* Group indicator */}
         {hasGroups && currentGroup && activeGroupId !== "plenary" && (
-          <div style={{ fontSize: 11, color: currentGroup.color, marginBottom: 6, display: "flex", alignItems: "center", gap: 4 }}>
-            <div style={{ width: 6, height: 6, borderRadius: "50%", background: currentGroup.color }} />Vous êtes dans la grappe <strong>{currentGroup.name}</strong>
+          <div style={{ fontSize: 11, color: currentGroup.color, marginBottom: 5, display: "flex", alignItems: "center", gap: 4 }}>
+            <div style={{ width: 6, height: 6, borderRadius: "50%", background: currentGroup.color }} />
+            Grappe <strong>{currentGroup.name}</strong>
           </div>
         )}
+        {/* Speaker selector */}
         {isMixedTable && (
-          <div style={{ display: "flex", gap: 5, marginBottom: 8, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 11, color: "#9CA3AF", alignSelf: "center" }}>Je parle en tant que :</span>
+          <div style={{ display: "flex", gap: 5, marginBottom: 6, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 11, color: "#9CA3AF", alignSelf: "center" }}>En tant que :</span>
             {humanParticipants.map(h => (
               <button key={h.id} onClick={() => setActiveSpeaker(h.id)}
-                style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "3px 10px", borderRadius: 16, cursor: "pointer", border: `1.5px solid ${activeSpeaker === h.id ? h.color : "#E5E7EB"}`, background: activeSpeaker === h.id ? `${h.color}15` : "#fff", color: activeSpeaker === h.id ? h.color : "#6B7280", fontWeight: activeSpeaker === h.id ? 700 : 400 }}>
-                <span>{h.emoji}</span><span>{h.name}</span>
+                style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, padding: "2px 8px", borderRadius: 12, cursor: "pointer", border: `1.5px solid ${activeSpeaker === h.id ? h.color : "#E5E7EB"}`, background: activeSpeaker === h.id ? `${h.color}15` : "#fff", color: activeSpeaker === h.id ? h.color : "#6B7280", fontWeight: activeSpeaker === h.id ? 700 : 400 }}>
+                {h.emoji} {h.name}
               </button>
             ))}
           </div>
         )}
-        <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
-          <div style={{ flex: 1, position: "relative" }}>
-            <textarea value={input || interimTranscript} onChange={e => setInput(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-              placeholder={hasGroups && activeGroupId !== "plenary" ? `Grappe ${currentGroup?.name} — question ou @Nom…` : "Question à la table ou @Nom pour cibler… (Entrée)"}
-              rows={2} style={{ width: "100%", border: `1.5px solid ${isListening ? "#DC2626" : "#E5E7EB"}`, borderRadius: 10, padding: "8px 12px", fontSize: 14, resize: "none", fontFamily: "system-ui", lineHeight: 1.5 }}
-              onFocus={e => !isListening && (e.target.style.borderColor = "#111827")} onBlur={e => !isListening && (e.target.style.borderColor = "#E5E7EB")} />
-            {isListening && <div style={{ position: "absolute", top: 6, right: 8, fontSize: 10, color: "#DC2626", animation: "pulse 1s infinite" }}>● Écoute…</div>}
-          </div>
-          <button onClick={toggleVoice} style={{ background: isListening ? "#DC2626" : "#F3F4F6", color: isListening ? "#fff" : "#374151", border: "none", borderRadius: 8, padding: "8px 10px", cursor: "pointer", fontSize: 16 }}>🎙</button>
-          {isRunning && <button onClick={handleStop} style={{ background: "#FEF2F2", color: "#DC2626", border: "1.5px solid #FECACA", borderRadius: 8, padding: "8px 12px", cursor: "pointer", fontSize: 13, fontWeight: 700 }}>⏹ Stop</button>}
+        <div style={{ display: "flex", gap: 6, alignItems: "flex-end" }}>
+          <textarea value={input || interimTranscript} onChange={e => setInput(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+            placeholder={hasGroups && activeGroupId !== "plenary" ? `Grappe ${currentGroup?.name || ""} — question ou @Nom…` : "Question à la table ou @Nom pour cibler… (Entrée)"}
+            rows={2} style={{ flex: 1, border: `1.5px solid ${isListening ? "#DC2626" : "#E5E7EB"}`, borderRadius: 10, padding: "8px 12px", fontSize: 14, resize: "none", fontFamily: "system-ui", lineHeight: 1.5, boxSizing: "border-box" }}
+            onFocus={e => !isListening && (e.target.style.borderColor = "#111827")} onBlur={e => !isListening && (e.target.style.borderColor = "#E5E7EB")} />
+          <button onClick={toggleVoice} style={{ background: isListening ? "#DC2626" : "#F3F4F6", color: isListening ? "#fff" : "#374151", border: "none", borderRadius: 8, padding: "8px 10px", cursor: "pointer", fontSize: 16, flexShrink: 0 }}>🎙</button>
+          {isRunning && <button onClick={handleStop} style={{ background: "#FEF2F2", color: "#DC2626", border: "1.5px solid #FECACA", borderRadius: 8, padding: "8px 10px", cursor: "pointer", fontSize: 13, fontWeight: 700, flexShrink: 0 }}>⏹</button>}
           <button onClick={() => handleSend()} disabled={!input.trim() || isRunning}
-            style={{ background: input.trim() && !isRunning ? (currentGroup?.color || activeSpeakerObj?.color || "#111827") : "#E5E7EB", color: input.trim() && !isRunning ? "#fff" : "#9CA3AF", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 14, fontWeight: 700, cursor: input.trim() && !isRunning ? "pointer" : "not-allowed" }}>→</button>
+            style={{ background: input.trim() && !isRunning ? (currentGroup?.color || activeSpeakerObj?.color || "#111827") : "#E5E7EB", color: input.trim() && !isRunning ? "#fff" : "#9CA3AF", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 14, fontWeight: 700, cursor: input.trim() && !isRunning ? "pointer" : "not-allowed", flexShrink: 0 }}>→</button>
         </div>
-        {messages.filter(m => m.role !== "secretary" && m.role !== "plenary_start" && m.role !== "group_synthesis").length >= 2 && status === "open" && !isRunning && (
+        {messages.filter(m => !["secretary","plenary_start","group_synthesis"].includes(m.role)).length >= 2 && status === "open" && !isRunning && (
           <button onClick={handleSynthesize} disabled={isSynthesizing}
-            style={{ marginTop: 8, width: "100%", background: "none", border: "1px solid #E5E7EB", borderRadius: 8, padding: "6px", fontSize: 12, color: "#6B7280", cursor: isSynthesizing || isRunning ? "not-allowed" : "pointer" }}>
+            style={{ marginTop: 6, width: "100%", background: "none", border: "1px solid #E5E7EB", borderRadius: 8, padding: "5px", fontSize: 12, color: "#6B7280", cursor: "pointer" }}>
             📋 Clôturer et synthétiser
           </button>
         )}
       </div>
+
+      {/* Settings Drawer */}
+      <SettingsDrawer
+        isOpen={settingsOpen} onClose={() => setSettingsOpen(false)}
+        config={config} onConfigChange={setConfig}
+        isMobile={isMobile} inDebate={true}
+      />
     </div>
   );
 }
-
 // ─── TABLE LIST ───────────────────────────────────────────────────────────────
 function TableList({ tables, onOpen, onNew, onDelete, onArchive, onRename, searchQuery, setSearchQuery }) {
   const [confirmDelete, setConfirmDelete] = useState(null);
@@ -1463,15 +1629,7 @@ export default function App() {
       `}</style>
       {showOnboarding && <OnboardingModal onClose={handleCloseOnboarding} />}
       {view === "list" && <TableList tables={tables} searchQuery={searchQuery} setSearchQuery={setSearchQuery} onOpen={id => { setActiveTableId(id); setView("debate"); }} onNew={() => { setActiveTableId(null); setView("setup"); }} onDelete={handleDelete} onArchive={handleArchive} onRename={handleRename} />}
-      {view === "setup" && (
-        <>
-          <div style={{ borderBottom: "1px solid #F3F4F6", padding: "12px 20px", display: "flex", alignItems: "center", gap: 10 }}>
-            <button onClick={() => setView("list")} style={{ background: "none", border: "none", color: "#6B7280", cursor: "pointer", fontSize: 18 }}>←</button>
-            <span style={{ fontWeight: 700, fontSize: 15, color: "#111827" }}>Nouvelle table</span>
-          </div>
-          <SetupScreen onStart={handleStart} />
-        </>
-      )}
+      {view === "setup" && <SetupScreen onStart={handleStart} />}
       {view === "debate" && activeTable && <DebateScreen table={activeTable} onUpdate={handleUpdate} onClose={() => setView("list")} />}
     </div>
   );
