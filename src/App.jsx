@@ -1267,20 +1267,22 @@ function DebateScreen({ table, onUpdate, onClose }) {
     const updatedMsgs = [...messages, userMsg]; setMessages(updatedMsgs);
 
     try {
-      const mentionMatch = userText.match(/@([^@\n]+?)(?:\s*(?:,|$|\n))/);
-      const mentionedRaw = mentionMatch?.[1] || "";
-      // Normalisation : retire accents, minuscules — robuste à @Realiste vs @Réaliste
-      const normalize = (s) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-      const mentionedNorm = normalize(mentionedRaw);
-      // Fix Challenger: @mention = only that persona responds, no cascade
-      // Strip leading articles for matching (Le/La/L'/Les)
-      const stripArticle = (s) => normalize(s).replace(/^(le |la |l|les )/, "").trim();
-      const targetPersona = mentionedNorm
-        ? activePersonas.find(p =>
-            stripArticle(p.name).includes(stripArticle(mentionedNorm)) ||
-            normalize(p.name).includes(mentionedNorm) ||
-            normalize(p.id).includes(mentionedNorm)
-          )
+      // Normalisation robuste — retire accents et met en minuscules
+      const normalize = (s) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      const stripArticle = (s) => normalize(s).replace(/^(le |la |l |les )/, "").trim();
+      // Extrait le texte après @ jusqu\'à la fin de la chaîne (simple et robuste)
+      const atIndex = userText.indexOf("@");
+      const mentionedRaw = atIndex >= 0 ? userText.slice(atIndex + 1).trim() : "";
+      const mentionedNorm = stripArticle(mentionedRaw);
+      // Fix Challenger: cherche le persona dont le nom normalisé commence par la mention
+      const targetPersona = mentionedNorm.length > 1
+        ? activePersonas.find(p => {
+            const pNorm = stripArticle(p.name);
+            const pId = normalize(p.id);
+            return pNorm.startsWith(mentionedNorm.split(" ")[0]) ||
+                   pId.startsWith(mentionedNorm.split(" ")[0]) ||
+                   mentionedNorm.startsWith(pNorm);
+          })
         : null;
 
       if (targetPersona) {
