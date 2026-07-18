@@ -953,15 +953,13 @@ function DebateScreen({ table, onUpdate, onClose }) {
   const [groups, setGroups] = useState(table.groups || []);
   const [input, setInput] = useState(""), [isRunning, setIsRunning] = useState(false), [isSynthesizing, setIsSynthesizing] = useState(false);
   const abortRef = useRef(null);
+  const stoppedRef = useRef(false);
 
   const handleStop = () => {
-    if (abortRef.current) {
-      abortRef.current.abort();
-      abortRef.current = null;
-    }
-    // Marquer les bulles en streaming comme terminées proprement
+    stoppedRef.current = true;
+    if (abortRef.current) { abortRef.current.abort(); abortRef.current = null; }
     setMessages(prev => prev.map(m => m.streaming
-      ? { ...m, streaming: false, text: m.text ? m.text + "\n\n[Arrêté]" : "[Arrêté]" }
+      ? { ...m, streaming: false, text: m.text || "[Arrêté]" }
       : m
     ));
     setIsRunning(false);
@@ -1046,6 +1044,7 @@ function DebateScreen({ table, onUpdate, onClose }) {
   const handleSend = async (overrideText) => {
     const userText = (overrideText || input).trim(); if (!userText || isRunning) return;
     setInput(""); setInterimTranscript(""); setIsRunning(true);
+    stoppedRef.current = false;
     const controller = new AbortController();
     abortRef.current = controller;
     const signal = controller.signal;
@@ -1063,10 +1062,19 @@ function DebateScreen({ table, onUpdate, onClose }) {
           `Débat :\n${buildContext(afterTarget, gid)}\nDisponibles (sauf ${targetPersona.id}) : ${activePersonas.filter(p => p.id !== targetPersona.id).map(p => `${p.id}(${p.role})`).join(", ")}\nQui réagit ? 0-2 max.`);
         let ids = []; try { ids = JSON.parse(raw.replace(/```json|```/g, "").trim()); } catch {}
         let cur = afterTarget;
-        for (const pid of ids.slice(0, 2)) { const p = activePersonas.find(x => x.id === pid); if (p) { const r = await streamPersona(p, userText, cur, gid, signal); cur = [...cur, r]; await new Promise(res => setTimeout(res, 300)); } }
+        for (const pid of ids.slice(0, 2)) {
+          if (stoppedRef.current) break;
+          const p = activePersonas.find(x => x.id === pid);
+          if (p) { const r = await streamPersona(p, userText, cur, gid, signal); cur = [...cur, r]; if (!stoppedRef.current) await new Promise(res => setTimeout(res, 300)); }
+        }
       } else {
         let cur = updatedMsgs;
-        for (const persona of activePersonas) { const r = await streamPersona(persona, userText, cur, gid); cur = [...cur, r]; await new Promise(res => setTimeout(res, 300)); }
+        for (const persona of activePersonas) {
+          if (stoppedRef.current) break;
+          const r = await streamPersona(persona, userText, cur, gid, signal);
+          cur = [...cur, r];
+          if (!stoppedRef.current) await new Promise(res => setTimeout(res, 300));
+        }
       }
     } catch (err) { console.error(err); }
     abortRef.current = null;
@@ -1087,6 +1095,7 @@ function DebateScreen({ table, onUpdate, onClose }) {
 
   const startPlenary = async () => {
     setIsRunning(true);
+    stoppedRef.current = false;
     const controller = new AbortController();
     abortRef.current = controller;
     const signal = controller.signal;
@@ -1094,6 +1103,7 @@ function DebateScreen({ table, onUpdate, onClose }) {
     setActiveGroupId("plenary"); setSessionPhase("plenary");
     const snapshot = [...messages];
     for (const group of groups) {
+      if (stoppedRef.current) break;
       if (!snapshot.some(m => m.groupId === group.id)) continue;
       const ctx = buildContext(snapshot, group.id);
       const msgId = `sp_${group.id}_${Date.now()}`;
