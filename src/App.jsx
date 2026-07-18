@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { BetaGate, useBetaAccess } from "./BetaGate";
 
 const ARTISTIC_DISCIPLINES = [
   { id: "mise_en_scene", name: "Mise en scène", emoji: "🎭", role: "Vision scénique", color: "#7C3AED", bg: "#F5F3FF", border: "#DDD6FE", systemPrompt: `Tu es le Metteur en scène. Vision scénique, direction des performeurs. Style : visionnaire, exigeant. 3-4 phrases max.` },
@@ -81,7 +82,7 @@ async function setOnboardingDone() { try { await window.storage.set(ONBOARDING_K
 
 // ─── API ──────────────────────────────────────────────────────────────────────
 async function streamAPI(body, onChunk) {
-  const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...body, stream: true }) });
+  const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json", "x-beta-password": localStorage.getItem("tv_beta_access") || "" }, body: JSON.stringify({ ...body, stream: true }) });
   if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e?.error?.message || `API ${r.status}`); }
   const reader = r.body.getReader(), dec = new TextDecoder(); let buf = "";
   while (true) {
@@ -101,7 +102,7 @@ async function streamPersonaCall(systemPrompt, messages, webSearch, onChunk, onS
   const callAPI = async (msgs) => {
     const body = { model: "claude-sonnet-4-6", max_tokens: 1000, stream: true, system: systemPrompt, messages: msgs };
     if (tools.length) body.tools = tools;
-    const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json", "x-beta-password": localStorage.getItem("tv_beta_access") || "" }, body: JSON.stringify(body) });
     if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e?.error?.message || `API ${r.status}`); }
     return r;
   };
@@ -154,7 +155,7 @@ async function streamPersonaCall(systemPrompt, messages, webSearch, onChunk, onS
 }
 
 async function callClaudeSimple(system, userContent) {
-  const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" },
+  const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json", "x-beta-password": localStorage.getItem("tv_beta_access") || "" },
     body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1000, system, messages: [{ role: "user", content: userContent }] }) });
   const d = await r.json();
   return d.content?.map(b => b.text || "").join("") || "";
@@ -1332,6 +1333,11 @@ export default function App() {
   const [loaded, setLoaded] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const { granted, checked, grant } = useBetaAccess();
+  // [BETA-GATE] — retirer quand on passe à Clerk
+  if (!checked) return null;
+  if (!granted) return <BetaGate onAccess={grant} />;
+  // [/BETA-GATE]
 
   useEffect(() => {
     Promise.all([loadTables(), getOnboardingDone()]).then(([t, done]) => { setTables(t); setLoaded(true); if (!done) setShowOnboarding(true); });
