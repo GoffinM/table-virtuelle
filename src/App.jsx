@@ -961,9 +961,7 @@ function DebateScreen({ table, onUpdate, onClose }) {
     }
     // Marquer les bulles en streaming comme terminées proprement
     setMessages(prev => prev.map(m => m.streaming
-      ? { ...m, streaming: false, text: m.text ? m.text + "
-
-*[Arrêté]*" : "*[Arrêté]*" }
+      ? { ...m, streaming: false, text: m.text ? m.text + "\n\n[Arrêté]" : "[Arrêté]" }
       : m
     ));
     setIsRunning(false);
