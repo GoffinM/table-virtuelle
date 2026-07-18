@@ -81,7 +81,7 @@ async function setOnboardingDone() { try { await window.storage.set(ONBOARDING_K
 
 // ─── API ──────────────────────────────────────────────────────────────────────
 async function streamAPI(body, onChunk) {
-  const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...body, stream: true }) });
+  const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json", "x-beta-password": localStorage.getItem("tv_beta_access") || "" }, body: JSON.stringify({ ...body, stream: true }) });
   if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e?.error?.message || `API ${r.status}`); }
   const reader = r.body.getReader(), dec = new TextDecoder(); let buf = "";
   while (true) {
@@ -101,7 +101,7 @@ async function streamPersonaCall(systemPrompt, messages, webSearch, onChunk, onS
   const callAPI = async (msgs) => {
     const body = { model: "claude-sonnet-4-6", max_tokens: 1000, stream: true, system: systemPrompt, messages: msgs };
     if (tools.length) body.tools = tools;
-    const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json", "x-beta-password": localStorage.getItem("tv_beta_access") || "" }, body: JSON.stringify(body) });
     if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e?.error?.message || `API ${r.status}`); }
     return r;
   };
@@ -154,7 +154,7 @@ async function streamPersonaCall(systemPrompt, messages, webSearch, onChunk, onS
 }
 
 async function callClaudeSimple(system, userContent) {
-  const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" },
+  const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json", "x-beta-password": localStorage.getItem("tv_beta_access") || "" },
     body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1000, system, messages: [{ role: "user", content: userContent }] }) });
   const d = await r.json();
   return d.content?.map(b => b.text || "").join("") || "";
@@ -947,6 +947,13 @@ function DebateScreen({ table, onUpdate, onClose }) {
   const [docs, setDocs] = useState(table.docs || []);
   const [groups, setGroups] = useState(table.groups || []);
   const [input, setInput] = useState(""), [isRunning, setIsRunning] = useState(false), [isSynthesizing, setIsSynthesizing] = useState(false);
+  const abortRef = useRef(null);
+
+  const handleStop = () => {
+    if (abortRef.current) { abortRef.current.abort(); abortRef.current = null; }
+    setMessages(prev => prev.map(m => m.streaming ? { ...m, streaming: false, text: (m.text || "") + " ⛔" } : m));
+    setIsRunning(false); setIsSynthesizing(false);
+  };
   const [status, setStatus] = useState(table.status || "open");
   const [sessionPhase, setSessionPhase] = useState(table.sessionPhase || (table.useGroups && table.groups?.length > 0 ? "groups" : "plenary"));
   const [activeGroupId, setActiveGroupId] = useState(table.groups?.[0]?.id || "plenary");
@@ -1244,6 +1251,7 @@ function DebateScreen({ table, onUpdate, onClose }) {
             {isListening && <div style={{ position: "absolute", top: 6, right: 8, fontSize: 10, color: "#DC2626", animation: "pulse 1s infinite" }}>● Écoute…</div>}
           </div>
           <button onClick={toggleVoice} style={{ background: isListening ? "#DC2626" : "#F3F4F6", color: isListening ? "#fff" : "#374151", border: "none", borderRadius: 8, padding: "8px 10px", cursor: "pointer", fontSize: 16 }}>🎙</button>
+          {isRunning && <button onClick={handleStop} style={{ background: "#FEF2F2", color: "#DC2626", border: "1.5px solid #FECACA", borderRadius: 8, padding: "8px 12px", cursor: "pointer", fontSize: 13, fontWeight: 700 }}>⏹ Stop</button>}
           <button onClick={() => handleSend()} disabled={!input.trim() || isRunning}
             style={{ background: input.trim() && !isRunning ? (currentGroup?.color || activeSpeakerObj?.color || "#111827") : "#E5E7EB", color: input.trim() && !isRunning ? "#fff" : "#9CA3AF", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 14, fontWeight: 700, cursor: input.trim() && !isRunning ? "pointer" : "not-allowed" }}>→</button>
         </div>
