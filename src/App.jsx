@@ -1267,14 +1267,20 @@ function DebateScreen({ table, onUpdate, onClose }) {
     const updatedMsgs = [...messages, userMsg]; setMessages(updatedMsgs);
 
     try {
-      const mentionMatch = userText.match(/@([^\s]+)/);
+      const mentionMatch = userText.match(/@([^@\n]+?)(?:\s*(?:,|$|\n))/);
       const mentionedRaw = mentionMatch?.[1] || "";
       // Normalisation : retire accents, minuscules — robuste à @Realiste vs @Réaliste
       const normalize = (s) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       const mentionedNorm = normalize(mentionedRaw);
       // Fix Challenger: @mention = only that persona responds, no cascade
+      // Strip leading articles for matching (Le/La/L'/Les)
+      const stripArticle = (s) => normalize(s).replace(/^(le |la |l|les )/, "").trim();
       const targetPersona = mentionedNorm
-        ? activePersonas.find(p => normalize(p.name).includes(mentionedNorm) || normalize(p.id).includes(mentionedNorm))
+        ? activePersonas.find(p =>
+            stripArticle(p.name).includes(stripArticle(mentionedNorm)) ||
+            normalize(p.name).includes(mentionedNorm) ||
+            normalize(p.id).includes(mentionedNorm)
+          )
         : null;
 
       if (targetPersona) {
@@ -1470,7 +1476,7 @@ function DebateScreen({ table, onUpdate, onClose }) {
 
         {visibleMessages.map((msg, i) => (
           <MessageBubble key={msg.id || i} msg={msg} aiPersonas={allAiPersonas} humanParticipants={humanParticipants} groups={groups}
-            onChallenge={p => setInput(`@${p.name} `)} onSpeak={handleSpeak} isSpeaking={speakingMsgId === msg.id} />
+            onChallenge={p => { const mention = p.name.replace(/^(Le |La |L'|Les )/i, ''); setInput(`@${mention} `); }} onSpeak={handleSpeak} isSpeaking={speakingMsgId === msg.id} />
         ))}
 
         {(isRunning || isSynthesizing) && !messages.some(m => m.streaming) && (
