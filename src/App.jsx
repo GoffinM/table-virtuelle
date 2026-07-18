@@ -193,12 +193,34 @@ class AudioEngine {
     this.synth = window.speechSynthesis; this.recognition = null; this.voices = [];
     if (this.synth) { const load = () => { this.voices = this.synth.getVoices(); }; this.synth.onvoiceschanged = load; load(); }
   }
-  getVoice(i) { const lv = this.voices.filter(v => v.lang.startsWith("fr") || v.lang.startsWith("en")); return lv[i % Math.max(lv.length, 1)] || this.voices[0]; }
+  detectLang(text) {
+    // Détection simple : si plus de 30% de mots français courants → fr
+    const frWords = /\b(le|la|les|de|du|des|un|une|et|en|est|que|qui|dans|sur|pour|avec|pas|plus|par|au|aux|ce|se|si|je|tu|il|nous|vous|ils|elle|elles|mais|ou|donc|car|ni|or)\b/gi;
+    const matches = (text.match(frWords) || []).length;
+    const words = text.split(/\s+/).length;
+    return matches / words > 0.15 ? "fr" : "en";
+  }
+  getBestVoice(lang, index) {
+    // Priorité : voix native de la langue détectée
+    const langCode = lang === "fr" ? "fr" : "en";
+    const native = this.voices.filter(v => v.lang.startsWith(langCode));
+    // Préférer fr-FR ou fr-BE sur fr-CA, en-GB sur en-US pour le français
+    const preferred = lang === "fr"
+      ? (native.find(v => v.lang === "fr-FR") || native.find(v => v.lang === "fr-BE") || native[0])
+      : (native.find(v => v.lang === "en-GB") || native[0]);
+    if (preferred) return preferred;
+    // Fallback sur toutes voix disponibles
+    const all = this.voices.filter(v => v.lang.startsWith("fr") || v.lang.startsWith("en"));
+    return all[index % Math.max(all.length, 1)] || this.voices[0];
+  }
   speak(text, vc, onEnd) {
     if (!this.synth) return; this.synth.cancel();
     const clean = text.replace(/[📄🌐💭]\s*\[[^\]]+\]/g, "").replace(/#{1,3}\s/g, "").replace(/\*\*/g, "").trim();
+    const lang = this.detectLang(clean);
     const u = new SpeechSynthesisUtterance(clean);
-    u.voice = this.getVoice(vc?.voiceIndex || 0); u.pitch = vc?.pitch || 1; u.rate = vc?.rate || 1; u.lang = "fr-FR";
+    u.voice = this.getBestVoice(lang, vc?.voiceIndex || 0);
+    u.pitch = vc?.pitch || 1; u.rate = vc?.rate || 1;
+    u.lang = lang === "fr" ? "fr-FR" : "en-US";
     u.onend = onEnd; u.onerror = onEnd; this.synth.speak(u);
   }
   stop() { this.synth?.cancel(); }
@@ -1196,7 +1218,8 @@ function DebateScreen({ table, onUpdate, onClose }) {
       const p = allAiPersonas.find(x => x.id === m.personaId);
       return `[${p?.name || m.personaId}] : ${m.text}`;
     }).join("\n\n")}` : "";
-    return `Sujet : "${config.topic}"\nFramework : ${FRAMEWORKS[config.frameworkId]?.label || "Libre"}${gName ? `\nGrappe : ${gName}` : ""}${docNote}${plenaryCtx}\n\n${history || "(début du débat)"}`;
+    const universalInstruction = "\nINSTRUCTION : Réagis au sujet tel qu\'il est soumis. Ne suppose aucun état du projet non mentionné (ni succès, ni échec, ni avancement). Si le sujet est une idée ou une question, traite-la comme telle.";
+    return `Sujet : "${config.topic}"\nFramework : ${FRAMEWORKS[config.frameworkId]?.label || "Libre"}${gName ? `\nGrappe : ${gName}` : ""}${docNote}${universalInstruction}${plenaryCtx}\n\n${history || "(début du débat)"}`;
   };
 
   // Stream a single persona response
@@ -1245,9 +1268,14 @@ function DebateScreen({ table, onUpdate, onClose }) {
 
     try {
       const mentionMatch = userText.match(/@([^\s]+)/);
-      const mentionedName = mentionMatch?.[1]?.toLowerCase();
+      const mentionedRaw = mentionMatch?.[1] || "";
+      // Normalisation : retire accents, minuscules — robuste à @Realiste vs @Réaliste
+      const normalize = (s) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const mentionedNorm = normalize(mentionedRaw);
       // Fix Challenger: @mention = only that persona responds, no cascade
-      const targetPersona = mentionedName ? activePersonas.find(p => p.name.toLowerCase().includes(mentionedName) || p.id.includes(mentionedName)) : null;
+      const targetPersona = mentionedNorm
+        ? activePersonas.find(p => normalize(p.name).includes(mentionedNorm) || normalize(p.id).includes(mentionedNorm))
+        : null;
 
       if (targetPersona) {
         // Only the targeted persona responds — no cascade
