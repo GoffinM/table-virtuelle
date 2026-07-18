@@ -1334,10 +1334,6 @@ export default function App() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const { granted, checked, grant } = useBetaAccess();
-  // [BETA-GATE] — retirer quand on passe à Clerk
-  if (!checked) return null;
-  if (!granted) return <BetaGate onAccess={grant} />;
-  // [/BETA-GATE]
 
   useEffect(() => {
     Promise.all([loadTables(), getOnboardingDone()]).then(([t, done]) => { setTables(t); setLoaded(true); if (!done) setShowOnboarding(true); });
@@ -1361,6 +1357,10 @@ export default function App() {
   const handleRename = (id, newTopic) => { if (!newTopic.trim()) return; const u = tables.map(t => t.id === id ? { ...t, topic: newTopic.trim(), updatedAt: Date.now() } : t); setTables(u); saveTables(u); };
   const handleCloseOnboarding = async () => { await setOnboardingDone(); setShowOnboarding(false); };
 
+  // [BETA-GATE] — retirer quand on passe à Clerk
+  if (!checked) return null;
+  if (!granted) return <BetaGate onAccess={grant} />;
+  // [/BETA-GATE]
   if (!loaded) return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", color: "#9CA3AF" }}>Chargement…</div>;
 
   return (
